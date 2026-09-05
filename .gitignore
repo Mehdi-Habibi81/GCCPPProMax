@@ -1,0 +1,19 @@
+# Local secrets and installation state
+auth/config.php
+auth/.auth_encryption_key
+auth/.installed
+
+# Composer dependencies (install with composer install)
+/vendor/
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
