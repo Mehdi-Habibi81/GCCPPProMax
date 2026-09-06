@@ -220,7 +220,19 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
         <?php endif; ?>
 
     </div>
-
+    
+        <!-- Lab Digitization Quick Access -->
+    <div class="security-card">
+        <h2>🧪 <?php echo is_persian() ? 'آزمایشگاه سوخت و روغن' : 'Fuel & Oil Lab'; ?></h2>
+        <p style="font-size:14px;color:#555;margin:8px 0 14px;">
+            <?php echo is_persian()
+                ? 'ثبت نمونه‌ی جدید در دفتر اندیکاتور'
+                : 'Register a new sample in the indicator log'; ?>
+        </p>
+        <a href="lab/indicator.php" class="security-btn">
+            <?php echo is_persian() ? 'ثبت نمونه‌ی جدید' : 'New Sample Entry'; ?>
+        </a>
+    </div>
 
     <a
         href="auth/logout"
