@@ -1,12 +1,13 @@
 <?php
 require 'config.php';
+require_once 'lang.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = $_POST['email'] ?? '';
 
     if (empty($email)) {
-        echo "Please enter your email.";
+        echo htmlspecialchars(is_persian() ? 'لطفاً ایمیل خود را وارد کنید.' : 'Please enter your email.', ENT_QUOTES, 'UTF-8');
     } else {
 
         // Generate a secure random token
@@ -23,15 +24,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt->execute([$token, $email]);
 
-        echo "If that email is registered, a reset link has been sent.";
+        echo htmlspecialchars(t('reset_sent'), ENT_QUOTES, 'UTF-8');
 
         // TESTING ONLY
         // Remove this when you implement email sending.
         echo "<br><br>";
-        echo "Test link: ";
+        echo '<br><br>' . htmlspecialchars(t('test_link'), ENT_QUOTES, 'UTF-8') . ' ';
         echo "<a href='http://localhost/auth/reset?token="
             . urlencode($token)
-            . "'>Reset password</a>";
+            . "'>" . htmlspecialchars(t('reset_password_link'), ENT_QUOTES, 'UTF-8') . '</a>';
     }
 }
 ?>
@@ -41,13 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
 
-    <title>Forgot Password</title>
+    <title><?php echo t('forgot_title'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="auth-container">
 
@@ -57,29 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ?
         </div>
 
-        <h1>Forgot Password?</h1>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('forgot_heading'); ?></h1>
 
         <p class="subtitle">
-            Enter your email and we'll help you reset your password.
+            <?php echo t('forgot_subtitle'); ?>
         </p>
 
         <form method="POST">
 
             <div class="form-group">
 
-                <label>Email</label>
+                <label><?php echo t('email'); ?></label>
 
                 <input
                     type="email"
                     name="email"
-                    placeholder="Enter your email"
+                    placeholder="<?php echo is_persian() ? 'ایمیل خود را وارد کنید' : 'Enter your email'; ?>"
                     required
                 >
 
             </div>
 
             <button type="submit">
-                Send reset link
+                <?php echo t('send_reset'); ?>
             </button>
 
         </form>
@@ -87,9 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="auth-links">
 
             <p>
-                Remember your password?
+                <?php echo t('remember_password'); ?>
                 <a href="login">
-                    Log in
+                    <?php echo t('login_button'); ?>
                 </a>
             </p>
 

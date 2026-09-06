@@ -2,6 +2,7 @@
 
 require 'config.php';
 require_once 'security.php';
+require_once 'lang.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PragmaRX\Google2FA\Google2FA;
@@ -39,7 +40,7 @@ $success = '';
  * If 2FA is already enabled, don't generate a new secret.
  */
 if ($user['two_factor_enabled']) {
-    $success = "Google Authenticator is already enabled on your account.";
+    $success = t('already_enabled');
 }
 
 /*
@@ -74,7 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$user['two_factor_enabled']) {
 
     if (!preg_match('/^[0-9]{6}$/', $code)) {
 
-        $error = "Please enter the 6-digit code from Google Authenticator.";
+        $error = is_persian()
+            ? 'لطفاً کد ۶ رقمی Google Authenticator را وارد کنید.'
+            : 'Please enter the 6-digit code from Google Authenticator.';
 
     } else {
 
@@ -101,11 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$user['two_factor_enabled']) {
 
             $user['two_factor_enabled'] = 1;
 
-            $success = "Google Authenticator has been enabled successfully!";
+            $success = t('enabled_success');
 
         } else {
 
-            $error = "Invalid verification code. Please try again.";
+            $error = is_persian()
+                ? 'کد تأیید نادرست است. دوباره تلاش کنید.'
+                : 'Invalid verification code. Please try again.';
 
         }
     }
@@ -126,11 +131,11 @@ $qrUrl = $google2fa->getQRCodeUrl(
 ?>
 
 <!DOCTYPE html>
-<html>
+<html>s
 
 <head>
 
-    <title>Set Up Two-Factor Authentication</title>
+    <title><?php echo t('setup_twofa'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -175,7 +180,7 @@ $qrUrl = $google2fa->getQRCodeUrl(
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="auth-container">
 
@@ -185,7 +190,8 @@ $qrUrl = $google2fa->getQRCodeUrl(
             🔐
         </div>
 
-        <h1>Two-Factor Authentication</h1>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('setup_twofa'); ?></h1>
 
         <?php if (!empty($error)): ?>
 
@@ -208,18 +214,17 @@ $qrUrl = $google2fa->getQRCodeUrl(
             <div class="twofa-box">
 
                 <p>
-                    Open <strong>Google Authenticator</strong>
-                    on your phone and scan this QR code.
+                    <?php echo t('scan_qr'); ?>
                 </p>
 
                 <img
                     class="qr-code"
                     src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode($qrUrl); ?>"
-                    alt="Google Authenticator QR Code"
+                    alt="<?php echo is_persian() ? 'کد QR Google Authenticator' : 'Google Authenticator QR Code'; ?>"
                 >
 
                 <p>
-                    If you cannot scan the QR code, enter this secret manually:
+                    <?php echo t('manual_secret'); ?>
                 </p>
 
                 <div class="secret">
@@ -231,15 +236,15 @@ $qrUrl = $google2fa->getQRCodeUrl(
                     <ol>
 
                         <li>
-                            Install Google Authenticator.
+                            <?php echo is_persian() ? 'Google Authenticator را نصب کنید.' : 'Install Google Authenticator.'; ?>
                         </li>
 
                         <li>
-                            Scan the QR code above.
+                            <?php echo is_persian() ? 'کد QR بالا را اسکن کنید.' : 'Scan the QR code above.'; ?>
                         </li>
 
                         <li>
-                            Enter the 6-digit code shown in the app.
+                            <?php echo is_persian() ? 'کد ۶ رقمی برنامه را وارد کنید.' : 'Enter the 6-digit code shown in the app.'; ?>
                         </li>
 
                     </ol>
@@ -251,7 +256,7 @@ $qrUrl = $google2fa->getQRCodeUrl(
                     <div class="form-group">
 
                         <label>
-                            Authentication Code
+                            <?php echo t('auth_code'); ?>
                         </label>
 
                         <input
@@ -261,14 +266,14 @@ $qrUrl = $google2fa->getQRCodeUrl(
                             autocomplete="one-time-code"
                             maxlength="6"
                             pattern="[0-9]{6}"
-                            placeholder="Enter 6-digit code"
+                            placeholder="<?php echo is_persian() ? 'کد ۶ رقمی را وارد کنید' : 'Enter 6-digit code'; ?>"
                             required
                         >
 
                     </div>
 
                     <button type="submit">
-                        Enable 2FA
+                        <?php echo t('enable_twofa'); ?>
                     </button>
 
                 </form>
@@ -278,14 +283,14 @@ $qrUrl = $google2fa->getQRCodeUrl(
         <?php else: ?>
 
             <p>
-                Your account is protected with Google Authenticator.
+                <?php echo t('protected_twofa'); ?>
             </p>
 
             <div class="auth-links">
 
                 <p>
                     <a href="../dashboard">
-                        Back to dashboards
+                        <?php echo t('back_dashboard'); ?>
                     </a>
                 </p>
 

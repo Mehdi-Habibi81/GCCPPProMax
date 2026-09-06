@@ -1,6 +1,7 @@
 <?php
 require 'config.php';
 require_once 'security.php';
+require_once 'lang.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PragmaRX\Google2FA\Google2FA;
@@ -43,7 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!preg_match('/^[0-9]{6}$/', $code)) {
 
-        $error = "Please enter the 6-digit authentication code.";
+        $error = is_persian()
+            ? 'لطفاً کد ۶ رقمی احراز هویت را وارد کنید.'
+            : 'Please enter the 6-digit authentication code.';
 
     } else {
 
@@ -81,7 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } else {
 
-            $error = "Invalid authentication code. Please try again.";
+            $error = is_persian()
+                ? 'کد احراز هویت نادرست است. دوباره تلاش کنید.'
+                : 'Invalid authentication code. Please try again.';
         }
     }
 }
@@ -92,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
 
-    <title>Two-Factor Authentication</title>
+    <title><?php echo t('twofa_title'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -120,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="auth-container">
 
@@ -130,10 +135,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             🔐
         </div>
 
-        <h1>Two-Factor Authentication</h1>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('twofa_title'); ?></h1>
 
         <p class="subtitle">
-            Enter the 6-digit code from Google Authenticator.
+            <?php echo t('twofa_subtitle'); ?>
         </p>
 
         <?php if (!empty($error)): ?>
@@ -156,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Authentication Code</label>
+                <label><?php echo t('auth_code'); ?></label>
 
                 <input
                     class="code-input"
@@ -174,21 +180,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <button type="submit">
-                Verify and Log In
+                <?php echo t('verify_login'); ?>
             </button>
 
         </form>
 
         <p class="twofa-help">
-            Open Google Authenticator on your phone
-            and enter the current 6-digit code.
+            <?php echo t('twofa_help'); ?>
         </p>
 
         <div class="auth-links">
 
             <p>
                 <a href="login">
-                    Cancel
+                    <?php echo t('cancel'); ?>
                 </a>
             </p>
 

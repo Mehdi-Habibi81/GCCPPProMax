@@ -1,6 +1,7 @@
 <?php
 require 'config.php';
 require_once 'security.php';
+require_once 'lang.php';
 
 $error = '';
 $success = '';
@@ -15,31 +16,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validate inputs
     if (empty($username)) {
-        $error = "Username is required!";
+        $error = is_persian() ? 'وارد کردن نام کاربری الزامی است!' : 'Username is required!';
     } elseif (empty($email)) {
-        $error = "Email is required!";
+        $error = is_persian() ? 'وارد کردن ایمیل الزامی است!' : 'Email is required!';
     } elseif (empty($password)) {
-        $error = "Password is required!";
+        $error = t('password_required');
     } elseif (empty($password_confirm)) {
-        $error = "Please confirm your password!";
+        $error = t('confirm_required');
     } elseif (strlen($username) < 3) {
-        $error = "Username must be at least 3 characters long!";
+        $error = t('valid_username');
     } elseif (strlen($username) > 50) {
-        $error = "Username must not exceed 50 characters!";
+        $error = t('username_length');
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Please enter a valid email address!";
+        $error = t('valid_email');
     } elseif (strlen($password) < 8) {
-        $error = "Password must be at least 8 characters long!";
+        $error = t('password_length');
     } elseif (!preg_match('/[A-Z]/', $password)) {
-        $error = "Password must contain at least one uppercase letter!";
+        $error = t('uppercase_required');
     } elseif (!preg_match('/[a-z]/', $password)) {
-        $error = "Password must contain at least one lowercase letter!";
+        $error = t('lowercase_required');
     } elseif (!preg_match('/[0-9]/', $password)) {
-        $error = "Password must contain at least one number!";
+        $error = t('number_required');
     } elseif (!preg_match('/[^A-Za-z0-9]/', $password)) {
-        $error = "Password must contain at least one special character!";
+        $error = t('special_required');
     } elseif ($password !== $password_confirm) {
-        $error = "Passwords do not match!";
+        $error = t('password_mismatch');
     } else {
         try {
             // Check if username already exists
@@ -50,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existing_user = $stmt->fetch();
 
             if ($existing_user) {
-                $error = "Username already taken! Please choose another username.";
+                $error = t('username_taken');
             } else {
 
                 // Check if email already exists
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existing_email = $stmt->fetch();
 
                 if ($existing_email) {
-                    $error = "Email already registered! Please use a different email.";
+                    $error = t('email_taken');
                 } else {
 
                     // Hash password
@@ -79,7 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $hash
                     ]);
 
-                    $success = "User registered successfully! Redirecting to login...";
+                    $success = is_persian()
+                        ? 'ثبت‌نام با موفقیت انجام شد! در حال انتقال به صفحه ورود...'
+                        : 'User registered successfully! Redirecting to login...';
 
                     $username = '';
                     $email = '';
@@ -90,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         } catch (PDOException $e) {
-            $error = "An error occurred during registration. Please try again later.";
+            $error = t('generic_error');
             error_log("Registration error: " . $e->getMessage());
         }
     }
@@ -102,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
 
-    <title>Create Account</title>
+    <title><?php echo t('register_title'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -162,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="auth-container">
 
@@ -172,10 +175,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             A
         </div>
 
-        <h1>Create Account</h1>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('register_heading'); ?></h1>
 
         <p class="subtitle">
-            Create your new account
+            <?php echo t('register_subtitle'); ?>
         </p>
 
         <?php if (!empty($error)): ?>
@@ -198,12 +202,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Username</label>
+                <label><?php echo t('username'); ?></label>
 
                 <input
                     type="text"
                     name="username"
-                    placeholder="Choose a username (3-50 characters)"
+                    placeholder="<?php echo is_persian() ? 'نام کاربری انتخاب کنید (۳ تا ۵۰ کاراکتر)' : 'Choose a username (3-50 characters)'; ?>"
                     value="<?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"
                     minlength="3"
                     maxlength="50"
@@ -214,12 +218,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Email</label>
+                <label><?php echo t('email'); ?></label>
 
                 <input
                     type="email"
                     name="email"
-                    placeholder="Enter your email"
+                    placeholder="<?php echo is_persian() ? 'ایمیل خود را وارد کنید' : 'Enter your email'; ?>"
                     value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>"
                     required
                 >
@@ -228,13 +232,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Password</label>
+                <label><?php echo t('password'); ?></label>
 
                 <input
                     type="password"
                     name="password"
                     id="password"
-                    placeholder="Create a strong password"
+                    placeholder="<?php echo is_persian() ? 'یک رمز عبور قوی بسازید' : 'Create a strong password'; ?>"
                     required
                 >
 
@@ -251,31 +255,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="strength-text"
                         id="strengthText"
                     >
-                        Password strength
+                        <?php echo t('password_strength'); ?>
                     </div>
 
                 </div>
 
                 <ul class="password-requirements">
 
-                    <li id="length">
-                         At least 8 characters
+                    <li id="length" data-label="<?php echo htmlspecialchars(t('length_requirement'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo t('length_requirement'); ?>
                     </li>
 
-                    <li id="uppercase">
-                         At least one uppercase letter
+                    <li id="uppercase" data-label="<?php echo htmlspecialchars(t('uppercase_requirement'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo t('uppercase_requirement'); ?>
                     </li>
 
-                    <li id="lowercase">
-                         At least one lowercase letter
+                    <li id="lowercase" data-label="<?php echo htmlspecialchars(t('lowercase_requirement'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo t('lowercase_requirement'); ?>
                     </li>
 
-                    <li id="number">
-                         At least one number
+                    <li id="number" data-label="<?php echo htmlspecialchars(t('number_requirement'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo t('number_requirement'); ?>
                     </li>
 
-                    <li id="special">
-                         At least one special character
+                    <li id="special" data-label="<?php echo htmlspecialchars(t('special_requirement'), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php echo t('special_requirement'); ?>
                     </li>
 
                 </ul>
@@ -284,13 +288,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Confirm Password</label>
+                <label><?php echo t('confirm_password'); ?></label>
 
                 <input
                     type="password"
                     name="password_confirm"
                     id="passwordConfirm"
-                    placeholder="Confirm your password"
+                    placeholder="<?php echo is_persian() ? 'رمز عبور خود را تأیید کنید' : 'Confirm your password'; ?>"
                     required
                 >
 
@@ -306,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 id="submitButton"
                 disabled
             >
-                Create account
+                <?php echo t('register_button'); ?>
             </button>
 
         </form>
@@ -314,9 +318,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="auth-links">
 
             <p>
-                Already have an account?
+                <?php echo t('have_account'); ?>
                 <a href="login">
-                    Log in
+                    <?php echo t('login_button'); ?>
                 </a>
             </p>
 
@@ -347,7 +351,7 @@ const passwordMatch = document.getElementById('passwordMatch');
 
 function updateRequirement(element, valid) {
 
-    const text = element.textContent.substring(2);
+    const text = element.dataset.label;
 
     if (valid) {
         element.classList.add('valid');
@@ -390,31 +394,31 @@ function checkPassword() {
 
         strengthFill.style.width = '0%';
         strengthFill.style.background = '#e5e7eb';
-        strengthText.textContent = 'Password strength';
+        strengthText.textContent = <?php echo json_encode(t('password_strength'), JSON_UNESCAPED_UNICODE); ?>;
 
     } else if (score <= 2) {
 
         strengthFill.style.width = '30%';
         strengthFill.style.background = '#ef4444';
-        strengthText.textContent = 'Weak';
+        strengthText.textContent = <?php echo json_encode(t('weak'), JSON_UNESCAPED_UNICODE); ?>;
 
     } else if (score === 3) {
 
         strengthFill.style.width = '55%';
         strengthFill.style.background = '#f59e0b';
-        strengthText.textContent = 'Medium';
+        strengthText.textContent = <?php echo json_encode(t('medium'), JSON_UNESCAPED_UNICODE); ?>;
 
     } else if (score === 4) {
 
         strengthFill.style.width = '80%';
         strengthFill.style.background = '#eab308';
-        strengthText.textContent = 'Good';
+        strengthText.textContent = <?php echo json_encode(t('good'), JSON_UNESCAPED_UNICODE); ?>;
 
     } else {
 
         strengthFill.style.width = '100%';
         strengthFill.style.background = '#22c55e';
-        strengthText.textContent = 'Strong';
+        strengthText.textContent = <?php echo json_encode(t('strong'), JSON_UNESCAPED_UNICODE); ?>;
 
     }
 
@@ -431,12 +435,12 @@ function checkPasswordMatch() {
 
     } else if (password.value === passwordConfirm.value) {
 
-        passwordMatch.textContent = '✓ Passwords match';
+        passwordMatch.textContent = '✓ ' + <?php echo json_encode(t('passwords_match'), JSON_UNESCAPED_UNICODE); ?>;
         passwordMatch.style.color = '#22c55e';
 
     } else {
 
-        passwordMatch.textContent = '✗ Passwords do not match';
+        passwordMatch.textContent = '✗ ' + <?php echo json_encode(t('passwords_do_not_match'), JSON_UNESCAPED_UNICODE); ?>;
         passwordMatch.style.color = '#ef4444';
 
     }

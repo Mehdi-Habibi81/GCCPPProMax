@@ -1,6 +1,7 @@
 <?php
 require 'config.php';
 require_once 'security.php';
+require_once 'lang.php';
 
 $error = '';
 $username = '';
@@ -12,11 +13,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($username)) {
 
-        $error = "Username is required!";
+        $error = t('username') . ' ' . ($currentLanguage === 'fa' ? 'الزامی است!' : 'is required!');
 
     } elseif (empty($password)) {
 
-        $error = "Password is required!";
+        $error = t('password_required');
 
     } else {
 
@@ -63,8 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['username'] = $user['username'];
 
-                    $_SESSION['flash_message'] =
-                        "Welcome back, " . $user['username'] . "!";
+                    $_SESSION['flash_message'] = is_persian()
+                        ? 'خوش آمدید، ' . $user['username'] . '!'
+                        : 'Welcome back, ' . $user['username'] . '!';
 
                     header("Location: ../dashboard");
                     exit();
@@ -72,12 +74,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             } else {
 
-                $error = "Invalid username or password!";
+                $error = is_persian()
+                    ? 'نام کاربری یا رمز عبور نادرست است!'
+                    : 'Invalid username or password!';
             }
 
         } catch (PDOException $e) {
 
-            $error = "An error occurred. Please try again later.";
+            $error = t('generic_error');
 
             error_log(
                 "Login error: " . $e->getMessage()
@@ -92,13 +96,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
 
-    <title>Login</title>
+    <title><?php echo htmlspecialchars(t('login_title'), ENT_QUOTES, 'UTF-8'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="auth-container">
 
@@ -108,10 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             A
         </div>
 
-        <h1>Login</h1>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('login_heading'); ?></h1>
 
         <p class="subtitle">
-            Log in to your account
+            <?php echo t('login_subtitle'); ?>
         </p>
 
         <?php if (!empty($error)): ?>
@@ -132,12 +137,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Username</label>
+                <label><?php echo t('username'); ?></label>
 
                 <input
                     type="text"
                     name="username"
-                    placeholder="Enter your username"
+                    placeholder="<?php echo is_persian() ? 'نام کاربری خود را وارد کنید' : 'Enter your username'; ?>"
                     value="<?php
                         echo htmlspecialchars(
                             $username,
@@ -152,19 +157,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
 
-                <label>Password</label>
+                <label><?php echo t('password'); ?></label>
 
                 <input
                     type="password"
                     name="password"
-                    placeholder="Enter your password"
+                    placeholder="<?php echo is_persian() ? 'رمز عبور خود را وارد کنید' : 'Enter your password'; ?>"
                     required
                 >
 
             </div>
 
             <button type="submit">
-                Log in
+                <?php echo t('login_button'); ?>
             </button>
 
         </form>
@@ -173,14 +178,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <p>
                 <a href="forgot">
-                    Forgot password?
+                    <?php echo t('forgot_password'); ?>
                 </a>
             </p>
 
             <p>
-                Don't have an account?
+                <?php echo t('no_account'); ?>
                 <a href="register">
-                    Create account
+                    <?php echo t('create_account'); ?>
                 </a>
             </p>
 

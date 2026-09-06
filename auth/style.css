@@ -25,6 +25,32 @@ body {
     padding: 20px;
 }
 
+body[dir="rtl"] {
+    font-family: Tahoma, Arial, sans-serif;
+}
+
+body[dir="rtl"] .auth-card,
+body[dir="rtl"] .form-group,
+body[dir="rtl"] .auth-links {
+    text-align: right;
+}
+
+body[dir="rtl"] .security-card {
+    text-align: right;
+}
+
+.language-switch {
+    margin-bottom: 16px;
+    text-align: center;
+    font-size: 13px;
+}
+
+.language-switch a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+}
+
 .auth-card {
     background: rgba(255, 255, 255, 0.97);
 

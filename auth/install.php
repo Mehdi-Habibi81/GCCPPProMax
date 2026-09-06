@@ -3,6 +3,12 @@
 
 declare(strict_types=1);
 
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+require_once __DIR__ . '/lang.php';
+
 if (file_exists(__DIR__ . '/.installed')) {
     exit('Installation has already been completed.');
 }
@@ -22,11 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dbPassword = $_POST['password'] ?? '';
 
     if ($host === '' || preg_match('/[\s;\'"`]/', $host)) {
-        $message = 'Please enter a valid database host.';
+        $message = is_persian() ? 'لطفاً میزبان معتبر پایگاه داده را وارد کنید.' : 'Please enter a valid database host.';
     } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $dbname)) {
-        $message = 'Database name can only contain letters, numbers, and underscores.';
+        $message = is_persian() ? 'نام پایگاه داده فقط می‌تواند شامل حروف، اعداد و زیرخط باشد.' : 'Database name can only contain letters, numbers, and underscores.';
     } elseif ($dbUser === '') {
-        $message = 'Database username is required.';
+        $message = is_persian() ? 'نام کاربری پایگاه داده الزامی است.' : 'Database username is required.';
     } else {
         try {
             $pdo = null;
@@ -153,10 +159,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $success = true;
-            $message = 'Installation successful!';
+                    $message = is_persian() ? 'نصب با موفقیت انجام شد!' : 'Installation successful!';
         } catch (PDOException $e) {
             error_log('Installation database error: ' . $e->getMessage());
-            $message = 'Could not connect to the database. Verify the host, database name, username, and password.';
+            $message = is_persian()
+                ? 'اتصال به پایگاه داده ممکن نبود. اطلاعات اتصال را بررسی کنید.'
+                : 'Could not connect to the database. Verify the host, database name, username, and password.';
         } catch (Throwable $e) {
             error_log('Installation error: ' . $e->getMessage());
             $message = $e->getMessage();
@@ -170,16 +178,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Install Authentication System</title>
+    <title><?php echo t('install_title'); ?></title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 <div class="auth-container">
     <div class="auth-card">
         <div class="logo">A</div>
 
-        <h1>Install Authentication System</h1>
-        <p class="subtitle">Configure your database to get started.</p>
+        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+        <h1><?php echo t('install_title'); ?></h1>
+        <p class="subtitle"><?php echo t('install_subtitle'); ?></p>
 
         <?php if ($message !== ''): ?>
             <div class="<?= $success ? 'success-message' : 'error-message' ?>">
@@ -190,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if (!$success): ?>
             <form method="post">
                 <div class="form-group">
-                    <label for="host">Database Host</label>
+                    <label for="host"><?php echo t('database_host'); ?></label>
                     <input
                         id="host"
                         type="text"
@@ -201,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-group">
-                    <label for="dbname">Database Name</label>
+                    <label for="dbname"><?php echo t('database_name'); ?></label>
                     <input
                         id="dbname"
                         type="text"
@@ -212,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-group">
-                    <label for="username">Database Username</label>
+                    <label for="username"><?php echo t('database_username'); ?></label>
                     <input
                         id="username"
                         type="text"
@@ -223,15 +232,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-group">
-                    <label for="password">Database Password</label>
+                    <label for="password"><?php echo t('database_password'); ?></label>
                     <input id="password" type="password" name="password">
                 </div>
 
-                <button type="submit">Install</button>
+                <button type="submit"><?php echo t('install'); ?></button>
             </form>
         <?php else: ?>
             <p>
-                <a href="register">Go to registration</a>
+                <a href="register"><?php echo t('go_registration'); ?></a>
             </p>
         <?php endif; ?>
     </div>

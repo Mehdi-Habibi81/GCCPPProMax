@@ -1,5 +1,6 @@
 <?php
 require 'auth/config.php';
+require_once 'auth/lang.php';
 
 // If user is not logged in, redirect to login
 if (!isset($_SESSION['user_id'])) {
@@ -46,7 +47,7 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
 
     <meta charset="UTF-8">
 
-    <title>Dashboard</title>
+    <title><?php echo t('dashboard'); ?></title>
 
     <link rel="stylesheet" href="auth/style.css">
 
@@ -140,7 +141,7 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
 
 </head>
 
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 
 <div class="dashboard-card">
 
@@ -159,15 +160,16 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
     <?php endif; ?>
 
 
-    <h1>Dashboard</h1>
+    <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+    <h1><?php echo t('dashboard'); ?></h1>
 
     <p>
-        Hello, <strong><?= $username ?></strong>!
-        You are now logged in.
+        <?php echo t('hello'); ?> <strong><?= $username ?></strong>!
+        <?php echo t('logged_in'); ?>
     </p>
 
     <p>
-        This is your secure dashboard area.
+        <?php echo t('secure_area'); ?>
     </p>
 
 
@@ -175,18 +177,17 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
 
     <div class="security-card">
 
-        <h2>🔐 Account Security</h2>
+        <h2>🔐 <?php echo t('account_security'); ?></h2>
 
         <?php if ($twoFactorEnabled): ?>
 
             <div class="security-status enabled">
 
-                <strong>✓ Two-Factor Authentication Enabled</strong>
+                <strong>✓ <?php echo t('twofa_enabled'); ?></strong>
 
                 <br>
 
-                Your account is protected with
-                Google Authenticator.
+                <?php echo t('protected_twofa'); ?>
 
             </div>
 
@@ -194,19 +195,18 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
                 href="auth/2fa_setup"
                 class="security-btn"
             >
-                Manage 2FA
+                <?php echo t('manage_twofa'); ?>
             </a>
 
         <?php else: ?>
 
             <div class="security-status disabled">
 
-                <strong>⚠ Two-Factor Authentication Disabled</strong>
+                <strong>⚠ <?php echo t('twofa_disabled'); ?></strong>
 
                 <br>
 
-                Add Google Authenticator to make your
-                account more secure.
+                <?php echo is_persian() ? 'برای امنیت بیشتر Google Authenticator را اضافه کنید.' : 'Add Google Authenticator to make your account more secure.'; ?>
 
             </div>
 
@@ -214,7 +214,7 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
                 href="auth/2fa_setup"
                 class="security-btn"
             >
-                Enable Google Authenticator
+                <?php echo t('add_twofa'); ?>
             </a>
 
         <?php endif; ?>
@@ -226,7 +226,7 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
         href="auth/logout"
         class="logout-btn"
     >
-        Logout
+        <?php echo t('logout'); ?>
     </a>
 
 </div>

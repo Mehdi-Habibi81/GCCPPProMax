@@ -1,5 +1,6 @@
 <?php
 require 'config.php';
+require_once 'lang.php';
 require_once 'security.php';
 
 $error = '';
@@ -22,21 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$user) {
         $error = 'Invalid or expired reset token.';
     } elseif (empty($password)) {
-        $error = 'Password is required!';
+        $error = t('password_required');
     } elseif (empty($passwordConfirm)) {
-        $error = 'Please confirm your password!';
+        $error = t('confirm_required');
     } elseif (strlen($password) < 8) {
-        $error = 'Password must be at least 8 characters long!';
+        $error = t('password_length');
     } elseif (!preg_match('/[A-Z]/', $password)) {
-        $error = 'Password must contain at least one uppercase letter!';
+        $error = t('uppercase_required');
     } elseif (!preg_match('/[a-z]/', $password)) {
-        $error = 'Password must contain at least one lowercase letter!';
+        $error = t('lowercase_required');
     } elseif (!preg_match('/[0-9]/', $password)) {
-        $error = 'Password must contain at least one number!';
+        $error = t('number_required');
     } elseif (!preg_match('/[^A-Za-z0-9]/', $password)) {
-        $error = 'Password must contain at least one special character!';
+        $error = t('special_required');
     } elseif ($password !== $passwordConfirm) {
-        $error = 'Passwords do not match!';
+        $error = t('password_mismatch');
     } else {
         $hash = account_password_hash($password, $user['username']);
         $upd = $pdo->prepare(
@@ -45,24 +46,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              WHERE id = ?"
         );
         $upd->execute([$hash, $user['id']]);
-        $success = 'Password updated successfully!';
+        $success = is_persian() ? 'رمز عبور با موفقیت به‌روزرسانی شد!' : 'Password updated successfully!';
     }
 } elseif ($token === '') {
-    $error = 'No reset token provided.';
+    $error = is_persian() ? 'توکن بازنشانی ارائه نشده است.' : 'No reset token provided.';
 }
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Reset Password</title>
+    <title><?php echo t('reset_title'); ?></title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
     <div class="auth-container">
         <div class="auth-card">
             <div class="logo">✓</div>
-            <h1>Reset Password</h1>
-            <p class="subtitle">Enter and confirm your new password below.</p>
+            <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
+            <h1><?php echo t('reset_heading'); ?></h1>
+            <p class="subtitle"><?php echo t('reset_subtitle'); ?></p>
 
             <?php if ($error !== ''): ?>
                 <div class="error-message">
@@ -75,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
                 </div>
                 <div class="auth-links">
-                    <p><a href="login">Log in</a></p>
+                    <p><a href="login"><?php echo t('login_button'); ?></a></p>
                 </div>
             <?php elseif ($token !== ''): ?>
                 <form method="POST">
@@ -86,36 +88,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     >
 
                     <div class="form-group">
-                        <label for="password">New Password</label>
+                        <label for="password"><?php echo t('new_password'); ?></label>
                         <input
                             id="password"
                             type="password"
                             name="password"
-                            placeholder="Enter your new password"
+                            placeholder="<?php echo is_persian() ? 'رمز عبور جدید را وارد کنید' : 'Enter your new password'; ?>"
                             required
                         >
                     </div>
 
                     <div class="form-group">
-                        <label for="password_confirm">Confirm New Password</label>
+                        <label for="password_confirm"><?php echo t('confirm_new_password'); ?></label>
                         <input
                             id="password_confirm"
                             type="password"
                             name="password_confirm"
-                            placeholder="Confirm your new password"
+                            placeholder="<?php echo is_persian() ? 'رمز عبور جدید را تأیید کنید' : 'Confirm your new password'; ?>"
                             required
                         >
                     </div>
 
-                    <button type="submit">Set new password</button>
+                    <button type="submit"><?php echo t('set_password'); ?></button>
                 </form>
 
                 <div class="auth-links">
-                    <p><a href="login">Back to login</a></p>
+                    <p><a href="login"><?php echo t('back_login'); ?></a></p>
                 </div>
             <?php else: ?>
                 <div class="auth-links">
-                    <p><a href="forgot">Request a new reset link</a></p>
+                    <p><a href="forgot"><?php echo t('request_reset'); ?></a></p>
                 </div>
             <?php endif; ?>
         </div>
