@@ -102,6 +102,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
+            // ================================================================
+            // Lab digitization module tables (fuel & oil lab indicator log)
+            // ================================================================
+
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS sample_types (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    code TINYINT NOT NULL UNIQUE,
+                    name_fa VARCHAR(100) NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Seed the 9 fixed sample types (INSERT IGNORE so re-running
+            // the installer before .installed is written won't error out
+            // on the UNIQUE code column).
+            $pdo->exec(
+                "INSERT IGNORE INTO sample_types (code, name_fa) VALUES
+                    (1, 'گازوئیل'),
+                    (2, 'روغن'),
+                    (3, 'آب'),
+                    (4, 'کلرید سدیم'),
+                    (5, 'اسید کلریدریک'),
+                    (6, 'هیدروکلرید سدیم'),
+                    (7, 'رسوب'),
+                    (8, 'B&B'),
+                    (9, 'نفت سفید')"
+            );
+
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS samples (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sample_number VARCHAR(30) NOT NULL UNIQUE,
+                    sample_type_id INT NOT NULL,
+                    sample_name VARCHAR(150) NULL,
+                    jalali_year SMALLINT NOT NULL,
+                    quantity DECIMAL(10,2) NULL,
+                    quantity_unit VARCHAR(20) NULL,
+                    sampling_date DATE NULL,
+                    delivery_date DATE NULL,
+                    sampling_location VARCHAR(150) NULL,
+                    referrer VARCHAR(150) NULL,
+                    receiver VARCHAR(150) NULL,
+                    status VARCHAR(50) DEFAULT 'in_progress',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (sample_type_id) REFERENCES sample_types(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Shared per-Jalali-year sample number counter (atomic,
+            // race-safe numbering — see lab_generate_sample_number()).
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS sample_number_counters (
+                    jalali_year SMALLINT NOT NULL PRIMARY KEY,
+                    last_seq INT NOT NULL DEFAULT 0
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // ================================================================
+            // End lab digitization module tables
+            // ================================================================
+
             $config = "<?php\n"
                 . "declare(strict_types=1);\n\n"
                 . "\$host = " . var_export($host, true) . ";\n"
