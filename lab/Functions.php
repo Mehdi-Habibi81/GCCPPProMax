@@ -37,19 +37,24 @@ function lab_get_sample_types(PDO $pdo): array
  * Generate the sample number as: {jalali_year}-{type_code:02d}-{sequence:03d}
  * e.g. 1405-02-001
  *
- * The sequence is shared by every sample in the Jalali year, regardless
- * of sample type.
+ * The sequence is ONE shared counter per Jalali year across ALL sample
+ * types — two samples registered in the same year never get the same
+ * sequence number, regardless of their type.
+ *
+ * Uses a dedicated counter table (sample_number_counters) with an
+ * atomic INSERT ... ON DUPLICATE KEY UPDATE + LAST_INSERT_ID() trick,
+ * so concurrent requests can never be handed the same sequence number.
  */
 function lab_generate_sample_number(PDO $pdo, int $typeCode, int $jalaliYear): string
 {
     $stmt = $pdo->prepare(
-        "SELECT COUNT(*) AS c
-         FROM samples
-         WHERE jalali_year = :jalali_year"
+        "INSERT INTO sample_number_counters (jalali_year, last_seq)
+         VALUES (:jalali_year, 1)
+         ON DUPLICATE KEY UPDATE last_seq = LAST_INSERT_ID(last_seq + 1)"
     );
     $stmt->execute(['jalali_year' => $jalaliYear]);
-    $count = (int) $stmt->fetch()['c'];
-    $seq = $count + 1;
+
+    $seq = (int) $pdo->lastInsertId();
 
     return sprintf('%d-%02d-%03d', $jalaliYear, $typeCode, $seq);
 }
@@ -88,6 +93,29 @@ function lab_gregorian_to_jalali(string $gregorianDate): string
 function lab_current_jalali_year(): int
 {
     return (int) Jalalian::now()->getYear();
+}
+
+/**
+ * Fetch a single sample by id, with Jalali-formatted dates for
+ * pre-filling the edit form.
+ */
+function lab_get_sample_by_id(PDO $pdo, int $id): ?array
+{
+    $stmt = $pdo->prepare(
+        "SELECT s.*, st.name_fa AS type_name, st.code AS type_code
+         FROM samples s
+         JOIN sample_types st ON s.sample_type_id = st.id
+         WHERE s.id = :id
+         LIMIT 1"
+    );
+    $stmt->execute(['id' => $id]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+    $row['sampling_date_fa'] = $row['sampling_date'] ? lab_gregorian_to_jalali($row['sampling_date']) : '';
+    $row['delivery_date_fa'] = $row['delivery_date'] ? lab_gregorian_to_jalali($row['delivery_date']) : '';
+    return $row;
 }
 
 /**

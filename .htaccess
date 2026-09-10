@@ -7,8 +7,10 @@
     # 2. Redirect any .php URL to the clean version (remove .php)
     # e.g., /dashboard.php  ->  /dashboard
     #       /auth/login.php ->  /auth/login
+    # NOTE: no trailing "?" here — that would strip query strings
+    # like ?id=4 from the redirect target.
     RewriteCond %{THE_REQUEST} \s/([^.]+)\.php [NC]
-    RewriteRule ^ /%1? [R=302,L]
+    RewriteRule ^ /%1 [R=302,L]
 
     # 3. Internally load the .php file when the clean URL is requested
     # e.g., /dashboard  ->  /dashboard.php

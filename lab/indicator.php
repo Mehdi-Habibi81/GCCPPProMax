@@ -203,6 +203,7 @@ $recentSamples = lab_get_recent_samples($pdo);
                     <th>ارجاع‌کننده</th>
                     <th>تحویل‌گیرنده</th>
                     <th>وضعیت</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -218,10 +219,11 @@ $recentSamples = lab_get_recent_samples($pdo);
                         <td><?= $s['referrer'] ? htmlspecialchars($s['referrer']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= $s['receiver'] ? htmlspecialchars($s['receiver']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= htmlspecialchars($s['status']) ?></td>
+                        <td><a href="edit_sample.php?id=<?= (int)$s['id'] ?>" style="color:#2f6fed;text-decoration:none;">ویرایش</a></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (!$recentSamples): ?>
-                    <tr><td colspan="10" style="text-align:center;color:#999;">هنوز نمونه‌ای ثبت نشده است.</td></tr>
+                    <tr><td colspan="11" style="text-align:center;color:#999;">هنوز نمونه‌ای ثبت نشده است.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
