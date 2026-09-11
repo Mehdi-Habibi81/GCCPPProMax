@@ -13,7 +13,7 @@ auth/.installed
 .vscode/
 .idea/
 *.swp
-
+.continue
 # OS files
 .DS_Store
 Thumbs.db

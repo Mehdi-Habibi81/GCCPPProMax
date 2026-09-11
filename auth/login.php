@@ -8,84 +8,97 @@ $username = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
+    csrf_validate();
 
-    if (empty($username)) {
-
-        $error = t('username') . ' ' . ($currentLanguage === 'fa' ? 'الزامی است!' : 'is required!');
-
-    } elseif (empty($password)) {
-
-        $error = t('password_required');
-
+    // Rate limit: max 5 attempts per 15 minutes per session
+    if (!rate_limit_check('login_attempt', 5, 900)) {
+        $error = is_persian()
+            ? 'تعداد تلاش‌های ناموفق زیاد است. ۱۵ دقیقه دیگر دوباره تلاش کنید.'
+            : 'Too many failed attempts. Please try again in 15 minutes.';
     } else {
 
-        try {
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
 
-            $stmt = $pdo->prepare(
-                "SELECT * FROM users
-                 WHERE username = ?
-                 LIMIT 1"
-            );
+        if (empty($username)) {
 
-            $stmt->execute([$username]);
-            $user = $stmt->fetch();
+            $error = t('username') . ' ' . ($currentLanguage === 'fa' ? 'الزامی است!' : 'is required!');
 
-            if ($user && account_password_verify(
-                $password,
-                $user['username'],
-                $user['password']
-            )) {
+        } elseif (empty($password)) {
 
-                /*
-                 * Password is correct.
-                 *
-                 * If 2FA is enabled, DON'T log the user in yet.
-                 */
-                if ((int)$user['two_factor_enabled'] === 1) {
+            $error = t('password_required');
 
-                    // Store temporary authentication information
-                    $_SESSION['2fa_user_id'] = $user['id'];
-                    $_SESSION['2fa_username'] = $user['username'];
+        } else {
 
-                    // Redirect to 2FA verification
-                    header("Location: 2fa_verify");
-                    exit();
+            try {
+
+                $stmt = $pdo->prepare(
+                    "SELECT * FROM users
+                     WHERE username = ?
+                     LIMIT 1"
+                );
+
+                $stmt->execute([$username]);
+                $user = $stmt->fetch();
+
+                if ($user && account_password_verify(
+                    $password,
+                    $user['username'],
+                    $user['password']
+                )) {
+
+                    // Success - clear rate limit counter
+                    rate_limit_clear('login_attempt');
+
+                    /*
+                     * Password is correct.
+                     *
+                     * If 2FA is enabled, DON'T log the user in yet.
+                     */
+                    if ((int)$user['two_factor_enabled'] === 1) {
+
+                        // Store temporary authentication information
+                        $_SESSION['2fa_user_id'] = $user['id'];
+                        $_SESSION['2fa_username'] = $user['username'];
+
+                        // Redirect to 2FA verification
+                        header("Location: 2fa_verify");
+                        exit();
+
+                    } else {
+
+                        /*
+                         * 2FA isn't enabled.
+                         * Log the user in normally.
+                         */
+                        session_harden();
+
+                        $_SESSION['user_id'] = $user['id'];
+                        $_SESSION['username'] = $user['username'];
+
+                        $_SESSION['flash_message'] = is_persian()
+                            ? 'خوش آمدید، ' . $user['username'] . '!'
+                            : 'Welcome back, ' . $user['username'] . '!';
+
+                        header("Location: ../dashboard");
+                        exit();
+                    }
 
                 } else {
 
-                    /*
-                     * 2FA isn't enabled.
-                     * Log the user in normally.
-                     */
-                    session_regenerate_id(true);
-
-                    $_SESSION['user_id'] = $user['id'];
-                    $_SESSION['username'] = $user['username'];
-
-                    $_SESSION['flash_message'] = is_persian()
-                        ? 'خوش آمدید، ' . $user['username'] . '!'
-                        : 'Welcome back, ' . $user['username'] . '!';
-
-                    header("Location: ../dashboard");
-                    exit();
+                    $error = is_persian()
+                        ? 'نام کاربری یا رمز عبور نادرست است!'
+                        : 'Invalid username or password!';
                 }
 
-            } else {
+            } catch (PDOException $e) {
 
-                $error = is_persian()
-                    ? 'نام کاربری یا رمز عبور نادرست است!'
-                    : 'Invalid username or password!';
+                $error = t('generic_error');
+
+                error_log(
+                    "Login error: " . $e->getMessage()
+                );
             }
-
-        } catch (PDOException $e) {
-
-            $error = t('generic_error');
-
-            error_log(
-                "Login error: " . $e->getMessage()
-            );
         }
     }
 }
@@ -95,6 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html>
 
 <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title><?php echo htmlspecialchars(t('login_title'), ENT_QUOTES, 'UTF-8'); ?></title>
 
@@ -134,6 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="post" novalidate>
+
+            <?php echo csrf_field(); ?>
 
             <div class="form-group">
 
