@@ -9,10 +9,11 @@ lab_require_login();
 $errors = [];
 $success = null;
 $sampleTypes = lab_get_sample_types($pdo);
+$mainLogSheetTypes = lab_get_main_log_sheet_types($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sampleTypeId     = (int)($_POST['sample_type_id'] ?? 0);
-    $sampleName       = trim($_POST['sample_name'] ?? '');
+    $sampleTypeId       = (int)($_POST['sample_type_id'] ?? 0);
+    $mainLogSheetTypeId = (int)($_POST['main_log_sheet_type_id'] ?? 0);
     $quantity         = trim($_POST['quantity'] ?? '');
     $quantityUnit     = trim($_POST['quantity_unit'] ?? '');
     $samplingDateJ    = trim($_POST['sampling_date'] ?? '');
@@ -34,6 +35,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if ($typeCode === null) {
         $errors[] = 'نوع نمونه را انتخاب کنید (این فیلد برای صدور شماره لازم است).';
+    }
+
+    $mainLogSheetTypeValid = false;
+    foreach ($mainLogSheetTypes as $mlt) {
+        if ((int)$mlt['id'] === $mainLogSheetTypeId) {
+            $mainLogSheetTypeValid = true;
+            break;
+        }
+    }
+    if (!$mainLogSheetTypeValid) {
+        $errors[] = 'نوع لاگ‌شیت اصلی را انتخاب کنید.';
     }
 
     // Optional fields: validate only if the user actually filled them in
@@ -63,24 +75,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $pdo->prepare(
             "INSERT INTO samples
-                (sample_number, sample_type_id, sample_name, jalali_year, quantity, quantity_unit,
+                (sample_number, sample_type_id, main_log_sheet_type_id, jalali_year, quantity, quantity_unit,
                  sampling_date, delivery_date, sampling_location, referrer, receiver, status)
              VALUES
-                (:sample_number, :sample_type_id, :sample_name, :jalali_year, :quantity, :quantity_unit,
+                (:sample_number, :sample_type_id, :main_log_sheet_type_id, :jalali_year, :quantity, :quantity_unit,
                  :sampling_date, :delivery_date, :sampling_location, :referrer, :receiver, 'in_progress')"
         );
         $stmt->execute([
-            'sample_number'     => $sampleNumber,
-            'sample_type_id'    => $sampleTypeId,
-            'sample_name'       => $sampleName !== '' ? $sampleName : null,
-            'jalali_year'       => $jalaliYear,
-            'quantity'          => $quantity !== '' ? $quantity : null,
-            'quantity_unit'     => $quantityUnit !== '' ? $quantityUnit : null,
-            'sampling_date'     => $samplingDateG,
-            'delivery_date'     => $deliveryDateG,
-            'sampling_location' => $samplingLocation !== '' ? $samplingLocation : null,
-            'referrer'          => $referrer !== '' ? $referrer : null,
-            'receiver'          => $receiver !== '' ? $receiver : null,
+            'sample_number'          => $sampleNumber,
+            'sample_type_id'         => $sampleTypeId,
+            'main_log_sheet_type_id' => $mainLogSheetTypeId,
+            'jalali_year'            => $jalaliYear,
+            'quantity'               => $quantity !== '' ? $quantity : null,
+            'quantity_unit'          => $quantityUnit !== '' ? $quantityUnit : null,
+            'sampling_date'          => $samplingDateG,
+            'delivery_date'          => $deliveryDateG,
+            'sampling_location'      => $samplingLocation !== '' ? $samplingLocation : null,
+            'referrer'               => $referrer !== '' ? $referrer : null,
+            'receiver'               => $receiver !== '' ? $receiver : null,
         ]);
 
         $success = "نمونه با شماره {$sampleNumber} با موفقیت ثبت شد. می‌توانید بقیه‌ی اطلاعات را بعداً تکمیل کنید.";
@@ -98,6 +110,7 @@ $recentSamples = lab_get_recent_samples($pdo);
         body { font-family: Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
         .card { background:#fff; border-radius:10px; padding:24px; max-width:820px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
         h1 { font-size:20px; margin-top:0; }
+        .nav-link { display:inline-block; margin-bottom:16px; color:#2f6fed; text-decoration:none; font-size:14px; }
         .grid { display:grid; grid-template-columns:1fr 1fr; gap:0 20px; }
         label { display:block; margin:12px 0 4px; font-size:14px; color:#333; }
         label .optional { color:#999; font-weight:normal; font-size:12px; }
@@ -116,6 +129,7 @@ $recentSamples = lab_get_recent_samples($pdo);
 <body>
 
     <div class="card">
+        <a class="nav-link" href="internal_sheet.php">→ رفتن به لاگ‌شیت‌های داخلی (ثبت نتیجه‌ی آزمایش)</a>
         <h1>ثبت نمونه‌ی جدید (دفتر اندیکاتور)</h1>
 
         <?php foreach ($errors as $e): ?>
@@ -141,8 +155,15 @@ $recentSamples = lab_get_recent_samples($pdo);
                 </div>
 
                 <div>
-                    <label>نام نمونه <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="sample_name">
+                    <label>نوع لاگ‌شیت اصلی</label>
+                    <select name="main_log_sheet_type_id" required>
+                        <option value="">— انتخاب کنید —</option>
+                        <?php foreach ($mainLogSheetTypes as $mlt): ?>
+                            <option value="<?= (int)$mlt['id'] ?>">
+                                <?= htmlspecialchars($mlt['name_fa']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div>
@@ -194,8 +215,8 @@ $recentSamples = lab_get_recent_samples($pdo);
             <thead>
                 <tr>
                     <th>شماره نمونه</th>
-                    <th>نام نمونه</th>
-                    <th>نوع</th>
+                    <th>نوع لاگ‌شیت اصلی</th>
+                    <th>نوع نمونه</th>
                     <th>مقدار</th>
                     <th>تاریخ نمونه‌گیری</th>
                     <th>تاریخ تحویل</th>
@@ -210,7 +231,7 @@ $recentSamples = lab_get_recent_samples($pdo);
                 <?php foreach ($recentSamples as $s): ?>
                     <tr>
                         <td><?= htmlspecialchars($s['sample_number']) ?></td>
-                        <td><?= $s['sample_name'] ? htmlspecialchars($s['sample_name']) : '<span class="empty-cell">—</span>' ?></td>
+                        <td><?= $s['main_log_sheet_type_name'] ? htmlspecialchars($s['main_log_sheet_type_name']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= htmlspecialchars($s['type_name']) ?></td>
                         <td><?= $s['quantity'] ? htmlspecialchars($s['quantity'] . ' ' . $s['quantity_unit']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= $s['sampling_date_fa'] ?: '<span class="empty-cell">—</span>' ?></td>

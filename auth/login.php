@@ -10,8 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     csrf_validate();
 
-    // Rate limit: max 5 attempts per 15 minutes per session
-    if (!rate_limit_check('login_attempt', 5, 900)) {
+    // Rate limit: max 5 attempts per 5 minutes per session
+    if (!rate_limit_check('login_attempt', 5, 300)) {
         $error = is_persian()
             ? 'تعداد تلاش‌های ناموفق زیاد است. ۱۵ دقیقه دیگر دوباره تلاش کنید.'
             : 'Too many failed attempts. Please try again in 15 minutes.';

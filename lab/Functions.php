@@ -34,6 +34,16 @@ function lab_get_sample_types(PDO $pdo): array
 }
 
 /**
+ * The 7 main log sheet product types, for the (now required)
+ * "which main log sheet does this sample belong to" dropdown.
+ */
+function lab_get_main_log_sheet_types(PDO $pdo): array
+{
+    $stmt = $pdo->query("SELECT id, code, name_fa FROM main_log_sheet_types ORDER BY id");
+    return $stmt->fetchAll();
+}
+
+/**
  * Generate the sample number as: {jalali_year}-{type_code:02d}-{sequence:03d}
  * e.g. 1405-02-001
  *
@@ -102,9 +112,11 @@ function lab_current_jalali_year(): int
 function lab_get_sample_by_id(PDO $pdo, int $id): ?array
 {
     $stmt = $pdo->prepare(
-        "SELECT s.*, st.name_fa AS type_name, st.code AS type_code
+        "SELECT s.*, st.name_fa AS type_name, st.code AS type_code,
+                mlt.name_fa AS main_log_sheet_type_name
          FROM samples s
          JOIN sample_types st ON s.sample_type_id = st.id
+         LEFT JOIN main_log_sheet_types mlt ON s.main_log_sheet_type_id = mlt.id
          WHERE s.id = :id
          LIMIT 1"
     );
@@ -125,12 +137,14 @@ function lab_get_sample_by_id(PDO $pdo, int $id): ?array
 function lab_get_recent_samples(PDO $pdo, int $limit = 50): array
 {
     $stmt = $pdo->prepare(
-        "SELECT s.id, s.sample_number, s.sample_name, st.name_fa AS type_name,
+        "SELECT s.id, s.sample_number, mlt.name_fa AS main_log_sheet_type_name,
+                st.name_fa AS type_name,
                 s.quantity, s.quantity_unit,
                 s.sampling_date, s.delivery_date,
                 s.sampling_location, s.referrer, s.receiver, s.status
          FROM samples s
          JOIN sample_types st ON s.sample_type_id = st.id
+         LEFT JOIN main_log_sheet_types mlt ON s.main_log_sheet_type_id = mlt.id
          ORDER BY s.id DESC
          LIMIT :limit"
     );
@@ -141,6 +155,92 @@ function lab_get_recent_samples(PDO $pdo, int $limit = 50): array
     foreach ($rows as &$row) {
         $row['sampling_date_fa'] = $row['sampling_date'] ? lab_gregorian_to_jalali($row['sampling_date']) : '';
         $row['delivery_date_fa'] = $row['delivery_date'] ? lab_gregorian_to_jalali($row['delivery_date']) : '';
+    }
+
+    return $rows;
+}
+
+/**
+ * All test types (Density, Viscosity, ...) for the internal log
+ * sheet selector.
+ */
+function lab_get_test_types(PDO $pdo): array
+{
+    $stmt = $pdo->query("SELECT id, name, unit FROM test_types ORDER BY id");
+    return $stmt->fetchAll();
+}
+
+/**
+ * Get the single ongoing internal log sheet for a test type,
+ * creating it the first time it's needed. This models the paper
+ * workflow: one notebook per test type that keeps accumulating
+ * entries over time (rather than one sheet per day/batch).
+ */
+function lab_get_or_create_internal_sheet(PDO $pdo, int $testTypeId): int
+{
+    $stmt = $pdo->prepare(
+        "SELECT id FROM internal_log_sheets WHERE test_type_id = :test_type_id LIMIT 1"
+    );
+    $stmt->execute(['test_type_id' => $testTypeId]);
+    $row = $stmt->fetch();
+    if ($row) {
+        return (int) $row['id'];
+    }
+
+    $typeStmt = $pdo->prepare("SELECT name FROM test_types WHERE id = :id");
+    $typeStmt->execute(['id' => $testTypeId]);
+    $typeName = $typeStmt->fetchColumn() ?: '';
+
+    $insert = $pdo->prepare(
+        "INSERT INTO internal_log_sheets (test_type_id, sheet_date, title)
+         VALUES (:test_type_id, CURDATE(), :title)"
+    );
+    $insert->execute([
+        'test_type_id' => $testTypeId,
+        'title'        => 'لاگ‌شیت ' . $typeName,
+    ]);
+
+    return (int) $pdo->lastInsertId();
+}
+
+/**
+ * Samples for the "which sample is this result for" dropdown.
+ * Ordered newest first; limited so the dropdown stays usable.
+ */
+function lab_get_samples_for_select(PDO $pdo, int $limit = 200): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT s.id, s.sample_number, mlt.name_fa AS main_log_sheet_type_name
+         FROM samples s
+         LEFT JOIN main_log_sheet_types mlt ON s.main_log_sheet_type_id = mlt.id
+         ORDER BY s.id DESC
+         LIMIT :limit"
+    );
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+/**
+ * Test results already recorded on a given internal log sheet,
+ * with the related sample number/type and Jalali test date.
+ */
+function lab_get_results_for_sheet(PDO $pdo, int $sheetId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT tr.id, tr.result_value, tr.tested_date, tr.is_used_in_main_sheet,
+                s.sample_number, mlt.name_fa AS main_log_sheet_type_name
+         FROM test_results tr
+         JOIN samples s ON tr.sample_id = s.id
+         LEFT JOIN main_log_sheet_types mlt ON s.main_log_sheet_type_id = mlt.id
+         WHERE tr.internal_log_sheet_id = :sheet_id
+         ORDER BY tr.id DESC"
+    );
+    $stmt->execute(['sheet_id' => $sheetId]);
+    $rows = $stmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        $row['tested_date_fa'] = lab_gregorian_to_jalali($row['tested_date']);
     }
 
     return $rows;

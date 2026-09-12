@@ -16,7 +16,6 @@ $errors = [];
 $success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sampleName       = trim($_POST['sample_name'] ?? '');
     $quantity         = trim($_POST['quantity'] ?? '');
     $quantityUnit     = trim($_POST['quantity_unit'] ?? '');
     $samplingDateJ    = trim($_POST['sampling_date'] ?? '');
@@ -49,7 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         $stmt = $pdo->prepare(
             "UPDATE samples SET
-                sample_name = :sample_name,
                 quantity = :quantity,
                 quantity_unit = :quantity_unit,
                 sampling_date = :sampling_date,
@@ -61,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              WHERE id = :id"
         );
         $stmt->execute([
-            'sample_name'       => $sampleName !== '' ? $sampleName : null,
             'quantity'          => $quantity !== '' ? $quantity : null,
             'quantity_unit'     => $quantityUnit !== '' ? $quantityUnit : null,
             'sampling_date'     => $samplingDateG,
@@ -128,8 +125,8 @@ if (!$sample) {
 
             <div class="grid">
                 <div>
-                    <label>نام نمونه <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="sample_name" value="<?= htmlspecialchars($sample['sample_name'] ?? '') ?>">
+                    <label>نوع لاگ‌شیت اصلی</label>
+                    <input type="text" value="<?= htmlspecialchars($sample['main_log_sheet_type_name'] ?? '') ?>" readonly>
                 </div>
 
                 <div>
@@ -184,4 +181,4 @@ if (!$sample) {
     </div>
 
 </body>
-</html>
+</html>س
