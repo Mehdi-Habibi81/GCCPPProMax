@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../auth/config.php'; // provides $pdo, starts session
-require __DIR__ . '/Functions.php';
+require __DIR__ . '/functions.php';
 
 lab_require_login();
 
@@ -240,7 +240,11 @@ $recentSamples = lab_get_recent_samples($pdo);
                         <td><?= $s['referrer'] ? htmlspecialchars($s['referrer']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= $s['receiver'] ? htmlspecialchars($s['receiver']) : '<span class="empty-cell">—</span>' ?></td>
                         <td><?= htmlspecialchars($s['status']) ?></td>
-                        <td><a href="edit_sample.php?id=<?= (int)$s['id'] ?>" style="color:#2f6fed;text-decoration:none;">ویرایش</a></td>
+                        <td>
+                            <a href="edit_sample.php?id=<?= (int)$s['id'] ?>" style="color:#2f6fed;text-decoration:none;">ویرایش</a>
+                            ·
+                            <a href="main_sheet.php?sample_id=<?= (int)$s['id'] ?>" style="color:#1e7e34;text-decoration:none;">لاگ‌شیت اصلی</a>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (!$recentSamples): ?>
