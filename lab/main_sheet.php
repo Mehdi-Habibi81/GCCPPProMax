@@ -40,12 +40,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute(['id' => $sampleId]);
     }
 
+    if (isset($_POST['mark_sent'])) {
+        $cmmsRef = trim($_POST['cmms_reference_no'] ?? '');
+        $stmt = $pdo->prepare(
+            "UPDATE main_log_sheets
+             SET status = 'sent', sent_to_cmms_date = CURDATE(), cmms_reference_no = :ref
+             WHERE id = :id"
+        );
+        $stmt->execute([
+            'ref' => $cmmsRef !== '' ? $cmmsRef : null,
+            'id'  => $mainLogSheetId,
+        ]);
+
+        $stmt = $pdo->prepare("UPDATE samples SET status = 'sent' WHERE id = :id");
+        $stmt->execute(['id' => $sampleId]);
+    }
+
     $success = 'ذخیره شد.';
 }
 
 $rows = lab_get_main_sheet_rows($pdo, $mainLogSheetId, (int)$sample['main_log_sheet_type_id']);
 
-$sheetStmt = $pdo->prepare("SELECT status, compiled_date FROM main_log_sheets WHERE id = :id");
+$sheetStmt = $pdo->prepare("SELECT status, compiled_date, sent_to_cmms_date, cmms_reference_no FROM main_log_sheets WHERE id = :id");
 $sheetStmt->execute(['id' => $mainLogSheetId]);
 $sheetInfo = $sheetStmt->fetch();
 ?>
@@ -89,8 +105,11 @@ $sheetInfo = $sheetStmt->fetch();
         <div class="meta">
             شماره نمونه: <b><?= htmlspecialchars($sample['sample_number']) ?></b> —
             وضعیت لاگ‌شیت:
-            <span class="status-badge <?= $sheetInfo['status'] === 'final' ? 'status-final' : 'status-draft' ?>">
-                <?= $sheetInfo['status'] === 'final' ? 'نهایی‌شده' : 'در حال تکمیل (پیش‌نویس)' ?>
+            <span class="status-badge <?= $sheetInfo['status'] === 'draft' ? 'status-draft' : 'status-final' ?>">
+                <?php
+                    $statusLabels = ['draft' => 'در حال تکمیل (پیش‌نویس)', 'final' => 'نهایی‌شده', 'sent' => 'ارسال‌شده به CMMS'];
+                    echo htmlspecialchars($statusLabels[$sheetInfo['status']] ?? $sheetInfo['status']);
+                ?>
             </span>
         </div>
 
@@ -153,6 +172,33 @@ $sheetInfo = $sheetStmt->fetch();
                 </button>
             </div>
         </form>
+
+        <div style="margin-top:16px;">
+            <a href="export_word.php?sample_id=<?= (int)$sampleId ?>" class="btn-save"
+               style="display:inline-block;text-decoration:none;padding:10px 20px;border-radius:6px;background:#6c757d;color:#fff;">
+                دانلود فایل Word
+            </a>
+        </div>
+
+        <?php if (in_array($sheetInfo['status'], ['final', 'sent'], true)): ?>
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+                <h1 style="font-size:16px;">ثبت ارسال به CMMS</h1>
+                <?php if (!empty($sheetInfo['sent_to_cmms_date'] ?? null)): ?>
+                    <p style="color:#1e7e34;font-size:14px;">
+                        ✓ در تاریخ <?= htmlspecialchars(lab_gregorian_to_jalali($sheetInfo['sent_to_cmms_date'])) ?>
+                        با شماره پیگیری «<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '—') ?>» ارسال شده است.
+                    </p>
+                <?php endif; ?>
+                <form method="post" style="max-width:400px;">
+                    <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+                    <label style="display:block;margin-bottom:6px;font-size:14px;">شماره پیگیری CMMS <span style="color:#999;font-size:12px;">(اختیاری)</span></label>
+                    <input type="text" name="cmms_reference_no" value="<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '') ?>">
+                    <button type="submit" name="mark_sent" value="1" class="btn-finalize" style="margin-top:12px;">
+                        ثبت ارسال به CMMS
+                    </button>
+                </form>
+            </div>
+        <?php endif; ?>
     </div>
 
 </body>
