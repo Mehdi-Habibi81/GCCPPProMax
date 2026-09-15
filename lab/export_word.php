@@ -23,11 +23,8 @@ function word_text(mixed $value): string
     if ($value === null || $value === '') {
         return '—';
     }
-
     $value = (string)$value;
-
     $value = preg_replace('/[^\P{C}\t\r\n]/u', '', $value) ?? '';
-
     return $value !== '' ? $value : '—';
 }
 
@@ -56,8 +53,7 @@ if ($formCode === false) {
     $formCode = '';
 }
 
-// Does this form actually distinguish "روغن کارکرده" from "روغن نو"?
-// (fuel / cooling-liquid style forms only have a single limit column)
+// Does this form distinguish "روغن کارکرده" from "روغن نو"?
 $hasUsedNewSplit = false;
 foreach ($rows as $r) {
     if (!empty($r['limit_used']) && $r['limit_used'] !== '---') {
@@ -70,21 +66,18 @@ foreach ($rows as $r) {
 // Create Word document
 // ------------------------------------------------------------
 $phpWord = new PhpWord();
-
-// Note: use the string 'fa-IR' rather than Language::FA_IR — that
-// constant doesn't exist in all PHPWord versions.
 $phpWord->getSettings()->setThemeFontLang(new Language('fa-IR'));
 $phpWord->setDefaultFontName('Tahoma');
 $phpWord->setDefaultFontSize(11);
 
-$rtlParagraph = ['alignment' => Jc::CENTER, 'bidi' => true];
-$rtlParagraphRight = ['alignment' => Jc::END, 'bidi' => true];
+$rtlCenter = ['alignment' => Jc::CENTER, 'bidi' => true];
+$rtlRight  = ['alignment' => Jc::END, 'bidi' => true];
 
-$titleFont = ['bold' => true, 'size' => 14, 'name' => 'Tahoma'];
+$titleFont   = ['bold' => true, 'size' => 14, 'name' => 'Tahoma'];
 $companyFont = ['bold' => true, 'size' => 12, 'name' => 'Tahoma'];
-$normalFont = ['size' => 11, 'name' => 'Tahoma'];
-$smallFont = ['size' => 9, 'name' => 'Tahoma'];
-$tinyFont = ['size' => 8, 'name' => 'Tahoma'];
+$normalFont  = ['size' => 11, 'name' => 'Tahoma'];
+$smallFont   = ['size' => 9,  'name' => 'Tahoma'];
+$tinyFont    = ['size' => 8,  'name' => 'Tahoma'];
 
 $section = $phpWord->addSection([
     'orientation' => 'landscape',
@@ -93,33 +86,33 @@ $section = $phpWord->addSection([
 ]);
 
 // ------------------------------------------------------------
-// Header block — mirrors the paper form's top area:
-// document code on one side, company/title centered.
+// Header block: کد سند in the TOP-LEFT cell, company/title CENTERED
+// (insertion order left→right, so the code cell — added first —
+// lands in the top-left corner as confirmed)
 // ------------------------------------------------------------
 $headerTable = $section->addTable(['borderSize' => 0, 'cellMargin' => 40]);
 $headerTable->addRow();
-$headerTable->addCell(3000)->addText(word_text('کد سند: ' . $formCode), $smallFont, $rtlParagraphRight);
-$headerCell = $headerTable->addCell(6000);
-$headerCell->addText(word_text('بسمه‌تعالی'), $titleFont, $rtlParagraph);
-$headerCell->addText(word_text('شرکت مدیریت تولید برق گیلان'), $companyFont, $rtlParagraph);
-
+$headerTable->addCell(2500)->addText(word_text($formCode), $smallFont, $rtlCenter);
+$headerCell = $headerTable->addCell(7000);
+$headerCell->addText(word_text('بسمه‌تعالی'), $titleFont, $rtlCenter);
+$headerCell->addText(word_text('شرکت مدیریت تولید برق گیلان'), $companyFont, $rtlCenter);
 $sampleTypeName = htmlspecialchars_decode((string)($sample['main_log_sheet_type_name'] ?? ''), ENT_QUOTES);
-$headerCell->addText(word_text('فرم گزارش لاکتیویت کنترل کیفیت ' . $sampleTypeName), $normalFont, $rtlParagraph);
-$headerTable->addCell(3000)->addText('', $smallFont, $rtlParagraph);
+$headerCell->addText(word_text('فرم گزارش لاکتیویت کنترل کیفیت ' . $sampleTypeName), $normalFont, $rtlCenter);
+$headerTable->addCell(2500)->addText('', $smallFont, $rtlCenter);
 
 $section->addTextBreak(1);
 
 // ------------------------------------------------------------
-// Sample information box — matches the paper form's info strip
-// (شماره نمونه / شرح نمونه / محل نمونه‌گیری / نام روغن یا سوخت /
-//  تاریخ نمونه‌گیری)
+// Sample information box — RTL: label cell added LAST so it
+// lands on the right ("شماره نمونه:" reads right, blank/value
+// extends to the left, matching the paper form).
 // ------------------------------------------------------------
 $infoTable = $section->addTable(['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 80]);
 
-$addInfoRow = function (string $label, mixed $value) use ($infoTable, $normalFont, $rtlParagraphRight): void {
+$addInfoRow = function (string $label, mixed $value) use ($infoTable, $normalFont, $rtlRight): void {
     $infoTable->addRow();
-    $infoTable->addCell(3000)->addText(word_text($label), ['bold' => true] + $normalFont, $rtlParagraphRight);
-    $infoTable->addCell(6000)->addText(word_text($value), $normalFont, $rtlParagraphRight);
+    $infoTable->addCell(6000)->addText(word_text($value), $normalFont, $rtlRight);       // left
+    $infoTable->addCell(3000)->addText(word_text($label), ['bold' => true] + $normalFont, $rtlRight); // right
 };
 
 $addInfoRow('شماره نمونه', $sample['sample_number'] ?? null);
@@ -133,69 +126,86 @@ $addInfoRow('تحویل‌گیرنده', $sample['receiver'] ?? null);
 $section->addTextBreak(1);
 
 // ------------------------------------------------------------
-// Results table — mirrors the paper form's column layout:
-// separate "روغن کارکرده" / "روغن نو" columns when the form
-// actually uses that split; a single "مقدار مجاز" column otherwise.
+// Results table — TRUE right-to-left column order:
+// ردیف is the LAST cell added in each row, so it lands as the
+// visually right-most column, matching the paper form exactly.
+// When the form splits "مقادیر مجاز" into روغن کارکرده / روغن نو,
+// a two-row header is built with a merged (gridSpan) top cell.
 // ------------------------------------------------------------
 $resultsTable = $section->addTable(['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 60]);
-$headerCellStyle = ['bgColor' => 'EEEEEE'];
-
-$resultsTable->addRow();
-$resultsTable->addCell(600, $headerCellStyle)->addText(word_text('ردیف'), ['bold' => true] + $tinyFont, $rtlParagraph);
-$resultsTable->addCell(2600, $headerCellStyle)->addText(word_text('آزمایش'), ['bold' => true] + $tinyFont, $rtlParagraph);
-$resultsTable->addCell(1000, $headerCellStyle)->addText(word_text('واحد اندازه‌گیری'), ['bold' => true] + $tinyFont, $rtlParagraph);
-$resultsTable->addCell(1300, $headerCellStyle)->addText(word_text('روش آزمایش'), ['bold' => true] + $tinyFont, $rtlParagraph);
+$hdr = ['bgColor' => 'EEEEEE'];
 
 if ($hasUsedNewSplit) {
-    $resultsTable->addCell(1400, $headerCellStyle)->addText(word_text('مقادیر مجاز (روغن کارکرده)'), ['bold' => true] + $tinyFont, $rtlParagraph);
-    $resultsTable->addCell(1400, $headerCellStyle)->addText(word_text('مقادیر مجاز (روغن نو)'), ['bold' => true] + $tinyFont, $rtlParagraph);
-} else {
-    $resultsTable->addCell(2800, $headerCellStyle)->addText(word_text('مقدار مجاز'), ['bold' => true] + $tinyFont, $rtlParagraph);
-}
+    // Header row 1
+    $resultsTable->addRow();
+    $resultsTable->addCell(1500, $hdr + ['vMerge' => 'restart'])->addText(word_text('نتیجه آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(2800, $hdr + ['gridSpan' => 2])->addText(word_text('مقادیر مجاز'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1300, $hdr + ['vMerge' => 'restart'])->addText(word_text('روش آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1000, $hdr + ['vMerge' => 'restart'])->addText(word_text('واحد اندازه‌گیری'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(2600, $hdr + ['vMerge' => 'restart'])->addText(word_text('آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(600, $hdr + ['vMerge' => 'restart'])->addText(word_text('ردیف'), ['bold' => true] + $tinyFont, $rtlCenter);
 
-$resultsTable->addCell(1500, $headerCellStyle)->addText(word_text('نتیجه آزمایش'), ['bold' => true] + $tinyFont, $rtlParagraph);
+    // Header row 2 (sub-columns under "مقادیر مجاز": نو on the left half, کارکرده on the right half)
+    $resultsTable->addRow();
+    $resultsTable->addCell(1500, ['vMerge' => 'continue']);
+    $resultsTable->addCell(1400, $hdr)->addText(word_text('روغن نو'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1400, $hdr)->addText(word_text('روغن کارکرده'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1300, ['vMerge' => 'continue']);
+    $resultsTable->addCell(1000, ['vMerge' => 'continue']);
+    $resultsTable->addCell(2600, ['vMerge' => 'continue']);
+    $resultsTable->addCell(600, ['vMerge' => 'continue']);
+} else {
+    $resultsTable->addRow();
+    $resultsTable->addCell(1500, $hdr)->addText(word_text('نتیجه آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(2800, $hdr)->addText(word_text('مقدار مجاز'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1300, $hdr)->addText(word_text('روش آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1000, $hdr)->addText(word_text('واحد اندازه‌گیری'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(2600, $hdr)->addText(word_text('آزمایش'), ['bold' => true] + $tinyFont, $rtlCenter);
+    $resultsTable->addCell(600, $hdr)->addText(word_text('ردیف'), ['bold' => true] + $tinyFont, $rtlCenter);
+}
 
 foreach ($rows as $r) {
     $testName = str_replace(' — NEEDS VERIFICATION', '', (string)($r['test_name'] ?? ''));
-
     $resultsTable->addRow();
-    $resultsTable->addCell(600)->addText(word_text($r['row_order'] ?? ''), $tinyFont, $rtlParagraph);
-    $resultsTable->addCell(2600)->addText(word_text($testName), $tinyFont, $rtlParagraphRight);
-    $resultsTable->addCell(1000)->addText(word_text($r['unit'] ?? null), $tinyFont, $rtlParagraph);
-    $resultsTable->addCell(1300)->addText(word_text($r['method'] ?? null), $tinyFont, $rtlParagraph);
+
+    $resultsTable->addCell(1500)->addText(word_text($r['result_value'] ?? null), $tinyFont, $rtlCenter);
 
     if ($hasUsedNewSplit) {
-        $usedVal = (!empty($r['limit_used']) && $r['limit_used'] !== '---') ? $r['limit_used'] : '---';
         $newVal = (isset($r['limit_new']) && $r['limit_new'] !== null && $r['limit_new'] !== '') ? $r['limit_new'] : '---';
-        $resultsTable->addCell(1400)->addText(word_text($usedVal), $tinyFont, $rtlParagraph);
-        $resultsTable->addCell(1400)->addText(word_text($newVal), $tinyFont, $rtlParagraph);
+        $usedVal = (!empty($r['limit_used']) && $r['limit_used'] !== '---') ? $r['limit_used'] : '---';
+        $resultsTable->addCell(1400)->addText(word_text($newVal), $tinyFont, $rtlCenter);
+        $resultsTable->addCell(1400)->addText(word_text($usedVal), $tinyFont, $rtlCenter);
     } else {
         $singleVal = (isset($r['limit_new']) && $r['limit_new'] !== null && $r['limit_new'] !== '') ? $r['limit_new'] : '---';
-        $resultsTable->addCell(2800)->addText(word_text($singleVal), $tinyFont, $rtlParagraph);
+        $resultsTable->addCell(2800)->addText(word_text($singleVal), $tinyFont, $rtlCenter);
     }
 
-    $resultsTable->addCell(1500)->addText(word_text($r['result_value'] ?? null), $tinyFont, $rtlParagraph);
+    $resultsTable->addCell(1300)->addText(word_text($r['method'] ?? null), $tinyFont, $rtlCenter);
+    $resultsTable->addCell(1000)->addText(word_text($r['unit'] ?? null), $tinyFont, $rtlCenter);
+    $resultsTable->addCell(2600)->addText(word_text($testName), $tinyFont, $rtlRight);
+    $resultsTable->addCell(600)->addText(word_text($r['row_order'] ?? ''), $tinyFont, $rtlCenter);
 }
 
 $section->addTextBreak(2);
 
 // ------------------------------------------------------------
-// Signature block — matches the paper form's sign-off row
+// Signature block — RTL reading order: مسئول آزمایشگاه روزکار is
+// the preparer and reads right-most; مدیر امور شیمی (approver)
+// is added FIRST so it lands left-most.
 // ------------------------------------------------------------
 $signTable = $section->addTable(['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 80]);
 $signTable->addRow();
-$signTable->addCell(3000)->addText(word_text('مسئول آزمایشگاه روزکار:'), $smallFont, $rtlParagraphRight);
-$signTable->addCell(3000)->addText(word_text('رئیس اداره آزمایشگاه رنگ و پوشش:'), $smallFont, $rtlParagraphRight);
-$signTable->addCell(3000)->addText(word_text('مدیر امور شیمی:'), $smallFont, $rtlParagraphRight);
+$signTable->addCell(3000)->addText(word_text('مدیر امور شیمی:'), $smallFont, $rtlRight);
+$signTable->addCell(3000)->addText(word_text('رئیس اداره آزمایشگاه رنگ و پوشش:'), $smallFont, $rtlRight);
+$signTable->addCell(3000)->addText(word_text('مسئول آزمایشگاه روزکار:'), $smallFont, $rtlRight);
 
 $section->addTextBreak(1);
-$section->addText(word_text('تاریخ گزارش: ' . lab_gregorian_to_jalali(date('Y-m-d'))), $smallFont, $rtlParagraphRight);
+$section->addText(word_text('تاریخ گزارش: ' . lab_gregorian_to_jalali(date('Y-m-d'))), $smallFont, $rtlRight);
 
 // ------------------------------------------------------------
 // Prepare export directory
 // ------------------------------------------------------------
 $exportsDir = __DIR__ . '/exports';
-
 if (!is_dir($exportsDir)) {
     if (!mkdir($exportsDir, 0750, true) && !is_dir($exportsDir)) {
         while (ob_get_level() > 0) {
@@ -210,7 +220,6 @@ $safeSampleNumber = preg_replace('/[^A-Za-z0-9\-]/', '_', (string)($sample['samp
 if ($safeSampleNumber === '' || $safeSampleNumber === null) {
     $safeSampleNumber = 'sample';
 }
-
 $fileName = 'main_log_sheet_' . $safeSampleNumber . '.docx';
 $filePath = $exportsDir . DIRECTORY_SEPARATOR . $fileName;
 
