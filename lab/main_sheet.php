@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../auth/config.php'; // provides $pdo, starts session
-require __DIR__ . '/functions.php';
+require __DIR__ . '/Functions.php';
 
 lab_require_login();
 
