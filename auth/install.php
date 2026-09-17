@@ -8,6 +8,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once __DIR__ . '/lang.php';
+require_once __DIR__ . '/security.php';
 
 if (file_exists(__DIR__ . '/.installed')) {
     exit('Installation has already been completed.');
@@ -22,6 +23,8 @@ $dbUser = '';
 $dbPassword = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_validate();
+
     $host = trim($_POST['host'] ?? '');
     $dbname = trim($_POST['dbname'] ?? '');
     $dbUser = trim($_POST['username'] ?? '');
@@ -130,11 +133,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (9, 'نفت سفید')"
             );
 
+                                    // Main log sheet types (fuel & oil product categories) — must exist
+            // before samples table (which has a FK to it).
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS main_log_sheet_types (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    code VARCHAR(20) NOT NULL UNIQUE,
+                    name_fa VARCHAR(150) NOT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Seed main log sheet types
+            $pdo->exec(
+                "INSERT IGNORE INTO main_log_sheet_types (code, name_fa) VALUES
+                    ('FG-PC-0201', 'سوخت مایع'),
+                    ('FG-PC-0206', 'روغن دیزل ژنراتور'),
+                    ('FG-PC-0428', 'روغن توربین گاز'),
+                    ('FG-PC-0202', 'روغن توربین بخار'),
+                    ('FG-PC-0429', 'روغن کنترل'),
+                    ('FG-PC-0203', 'روغن ترانسفورماتور'),
+                    ('FG-PC-0191', 'مایعات سیکل خنک‌کننده بسته')"
+            );
+
             $pdo->exec(
                 "CREATE TABLE IF NOT EXISTS samples (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     sample_number VARCHAR(30) NOT NULL UNIQUE,
                     sample_type_id INT NOT NULL,
+                    main_log_sheet_type_id INT NOT NULL,
                     sample_name VARCHAR(150) NULL,
                     jalali_year SMALLINT NOT NULL,
                     quantity DECIMAL(10,2) NULL,
@@ -146,7 +172,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     receiver VARCHAR(150) NULL,
                     status VARCHAR(50) DEFAULT 'in_progress',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (sample_type_id) REFERENCES sample_types(id)
+                    FOREIGN KEY (sample_type_id) REFERENCES sample_types(id),
+                    FOREIGN KEY (main_log_sheet_type_id) REFERENCES main_log_sheet_types(id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
 
@@ -156,6 +183,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 "CREATE TABLE IF NOT EXISTS sample_number_counters (
                     jalali_year SMALLINT NOT NULL PRIMARY KEY,
                     last_seq INT NOT NULL DEFAULT 0
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Migration: add main_log_sheet_type_id to samples if missing
+            // (for existing DBs that have the old samples table without this column)
+            $sampleColumns = $pdo->query('SHOW COLUMNS FROM samples')
+                ->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('main_log_sheet_type_id', $sampleColumns, true)) {
+                $pdo->exec(
+                    "ALTER TABLE samples
+                     ADD COLUMN main_log_sheet_type_id INT NOT NULL DEFAULT 1
+                     AFTER sample_type_id"
+                );
+            }
+
+            // Seed main log sheet types
+            $pdo->exec(
+                "INSERT IGNORE INTO main_log_sheet_types (code, name_fa) VALUES
+                    ('FG-PC-0201', 'سوخت مایع'),
+                    ('FG-PC-0206', 'روغن دیزل ژنراتور'),
+                    ('FG-PC-0428', 'روغن توربین گاز'),
+                    ('FG-PC-0202', 'روغن توربین بخار'),
+                    ('FG-PC-0429', 'روغن کنترل'),
+                    ('FG-PC-0203', 'روغن ترانسفورماتور'),
+                    ('FG-PC-0191', 'مایعات سیکل خنک‌کننده بسته')"
+            );
+
+            // Test definitions per main log sheet type
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS main_log_sheet_test_definitions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    main_log_sheet_type_id INT NOT NULL,
+                    row_order INT NOT NULL,
+                    test_name VARCHAR(150) NOT NULL,
+                    unit VARCHAR(30),
+                    method VARCHAR(50),
+                    limit_new VARCHAR(50),
+                    limit_used VARCHAR(50),
+                    test_location VARCHAR(50) DEFAULT 'داخل نیروگاه',
+                    FOREIGN KEY (main_log_sheet_type_id) REFERENCES main_log_sheet_types(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Test types (Density, Viscosity, etc.)
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS test_types (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    unit VARCHAR(20)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Seed test types
+            $pdo->exec(
+                "INSERT IGNORE INTO test_types (id, name, unit) VALUES
+                    (1, 'دانسیته', 'kg/m3'),
+                    (2, 'ویسکوزیته', 'cSt')"
+            );
+
+            // Internal log sheets (one per test type, accumulating over time)
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS internal_log_sheets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    test_type_id INT NOT NULL,
+                    sheet_date DATE NOT NULL,
+                    title VARCHAR(150),
+                    FOREIGN KEY (test_type_id) REFERENCES test_types(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Test results on internal log sheets
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS test_results (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sample_id INT NOT NULL,
+                    internal_log_sheet_id INT NOT NULL,
+                    result_value VARCHAR(100),
+                    tested_date DATE NOT NULL,
+                    is_used_in_main_sheet BOOLEAN DEFAULT FALSE,
+                    FOREIGN KEY (sample_id) REFERENCES samples(id),
+                    FOREIGN KEY (internal_log_sheet_id) REFERENCES internal_log_sheets(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Main log sheets (one per sample)
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS main_log_sheets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sample_id INT NOT NULL UNIQUE,
+                    compiled_date DATE,
+                    status ENUM('draft','final','sent') DEFAULT 'draft',
+                    word_file_path VARCHAR(255),
+                    sent_to_cmms_date DATE,
+                    cmms_reference_no VARCHAR(100),
+                    FOREIGN KEY (sample_id) REFERENCES samples(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // Main log sheet results (one per test definition per main sheet)
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS main_log_sheet_results (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    main_log_sheet_id INT NOT NULL,
+                    test_definition_id INT NOT NULL,
+                    result_value VARCHAR(100),
+                    FOREIGN KEY (main_log_sheet_id) REFERENCES main_log_sheets(id),
+                    FOREIGN KEY (test_definition_id) REFERENCES main_log_sheet_test_definitions(id),
+                    UNIQUE KEY uniq_sheet_test (main_log_sheet_id, test_definition_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
 
@@ -257,8 +392,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <?php if (!$success): ?>
+                <?php if (!$success): ?>
             <form method="post">
+                <?php echo csrf_field(); ?>
+
                 <div class="form-group">
                     <label for="host"><?php echo t('database_host'); ?></label>
                     <input
