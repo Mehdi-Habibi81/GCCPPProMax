@@ -70,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
 
+            log_login_attempt($pdo, (string)$user['username'], true);
+
             $_SESSION['flash_message'] =
                 "Welcome back, " . $user['username'] . "!";
 
@@ -84,9 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } else {
 
-            $error = is_persian()
-                ? 'کد احراز هویت نادرست است. دوباره تلاش کنید.'
-                : 'Invalid authentication code. Please try again.';
+$error = is_persian()
+                            ? 'کد احراز هویت نادرست است. دوباره تلاش کنید.'
+                            : 'Invalid authentication code. Please try again.';
+
+            log_login_attempt($pdo, (string)($user['username'] ?? ''), false);
         }
     }
 }

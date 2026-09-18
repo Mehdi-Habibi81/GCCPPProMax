@@ -62,7 +62,30 @@ if ($selectedType) {
                 'tested_date'           => $testedDateG,
             ]);
 
-            $success = 'نتیجه با موفقیت ثبت شد.';
+            $testResultId = (int)$pdo->lastInsertId();
+
+            $transferredNote = '';
+            $sampleRow = lab_get_sample_by_id($pdo, $sampleId);
+            if ($sampleRow && !empty($sampleRow['main_log_sheet_type_id'])) {
+                $matchingDefId = lab_find_matching_test_definition(
+                    $pdo,
+                    (int)$sampleRow['main_log_sheet_type_id'],
+                    $testTypeId
+                );
+                if ($matchingDefId !== null
+                    && lab_transfer_internal_result_to_main_sheet(
+                        $pdo,
+                        $sampleId,
+                        $testResultId,
+                        $matchingDefId
+                    )
+                ) {
+                    $transferredNote = ' — نتیجه به لاگ‌شیت اصلی این نمونه منتقل شد.';
+                }
+            }
+
+            $success = 'نتیجه با موفقیت ثبت شد.' . $transferredNote;
+            lab_log_activity($pdo, 'internal_result_recorded', 'نمونه #' . $sampleId . ' — لاگ‌شیت داخلی #' . $sheetId);
         }
     }
 }
@@ -74,9 +97,10 @@ $results = $sheetId ? lab_get_results_for_sheet($pdo, $sheetId) : [];
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/assets/fonts.css">
     <title>لاگ‌شیت داخلی<?= $selectedType ? ' — ' . htmlspecialchars($selectedType['name']) : '' ?></title>
     <style>
-        body { font-family: Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
+        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
         .card { background:#fff; border-radius:10px; padding:24px; max-width:820px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
         h1 { font-size:20px; margin-top:0; }
         .type-list { display:flex; flex-wrap:wrap; gap:10px; }

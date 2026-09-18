@@ -96,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $success = "نمونه با شماره {$sampleNumber} با موفقیت ثبت شد. می‌توانید بقیه‌ی اطلاعات را بعداً تکمیل کنید.";
+        lab_log_activity($pdo, 'sample_created', 'شماره نمونه: ' . $sampleNumber);
     }
 }
 
@@ -105,9 +106,10 @@ $recentSamples = lab_get_recent_samples($pdo);
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/assets/fonts.css">
     <title>ثبت نمونه — دفتر اندیکاتور</title>
     <style>
-        body { font-family: Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
+        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
         .card { background:#fff; border-radius:10px; padding:24px; max-width:820px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
         h1 { font-size:20px; margin-top:0; }
         .nav-link { display:inline-block; margin-bottom:16px; color:#2f6fed; text-decoration:none; font-size:14px; }
@@ -130,6 +132,12 @@ $recentSamples = lab_get_recent_samples($pdo);
 
     <div class="card">
         <a class="nav-link" href="internal_sheet.php">→ رفتن به لاگ‌شیت‌های داخلی (ثبت نتیجه‌ی آزمایش)</a>
+        &nbsp;|&nbsp;
+        <a class="nav-link" href="analytics.php">→ آنالیز داده‌ها</a>
+        <?php if (lab_is_admin($pdo)): ?>
+            &nbsp;|&nbsp;
+            <a class="nav-link" href="admin_logs.php">→ لاگ کاربران (ادمین)</a>
+        <?php endif; ?>
         <h1>ثبت نمونه‌ی جدید (دفتر اندیکاتور)</h1>
 
         <?php foreach ($errors as $e): ?>

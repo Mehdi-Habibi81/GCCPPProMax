@@ -105,6 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
+            // Re-fetch columns (the ALTERs above may have changed the set).
+            $userColumns = $pdo->query('SHOW COLUMNS FROM users')
+                ->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!in_array('is_admin', $userColumns, true)) {
+                $pdo->exec(
+                    "ALTER TABLE users
+                     ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0"
+                );
+            }
+
             // ================================================================
             // Lab digitization module tables (fuel & oil lab indicator log)
             // ================================================================
@@ -198,19 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
-            // Seed main log sheet types
-            $pdo->exec(
-                "INSERT IGNORE INTO main_log_sheet_types (code, name_fa) VALUES
-                    ('FG-PC-0201', 'سوخت مایع'),
-                    ('FG-PC-0206', 'روغن دیزل ژنراتور'),
-                    ('FG-PC-0428', 'روغن توربین گاز'),
-                    ('FG-PC-0202', 'روغن توربین بخار'),
-                    ('FG-PC-0429', 'روغن کنترل'),
-                    ('FG-PC-0203', 'روغن ترانسفورماتور'),
-                    ('FG-PC-0191', 'مایعات سیکل خنک‌کننده بسته')"
-            );
-
-            // Test definitions per main log sheet type
+                        // Test definitions per main log sheet type
             $pdo->exec(
                 "CREATE TABLE IF NOT EXISTS main_log_sheet_test_definitions (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -281,9 +280,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
 
-            // Main log sheet results (one per test definition per main sheet)
+                        // Main log sheet results (one per test definition per main sheet)
+            $pdo->exec("DROP TABLE IF EXISTS main_log_sheet_results");
             $pdo->exec(
-                "CREATE TABLE IF NOT EXISTS main_log_sheet_results (
+                "CREATE TABLE main_log_sheet_results (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     main_log_sheet_id INT NOT NULL,
                     test_definition_id INT NOT NULL,
@@ -297,6 +297,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ================================================================
             // End lab digitization module tables
             // ================================================================
+
+            // ----------------------------------------------------------------
+            // Audit / admin tables (lab activity log + login attempts log)
+            // ----------------------------------------------------------------
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT UNSIGNED NULL,
+                    username VARCHAR(100) NULL,
+                    action VARCHAR(100) NOT NULL,
+                    details TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_activity_action (action),
+                    INDEX idx_activity_created (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS login_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    username VARCHAR(100) NULL,
+                    success TINYINT(1) NOT NULL DEFAULT 0,
+                    ip_address VARCHAR(45) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_login_created (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
 
             $config = "<?php\n"
                 . "declare(strict_types=1);\n\n"

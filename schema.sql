@@ -269,3 +269,49 @@ CREATE TABLE IF NOT EXISTS main_log_sheet_results (
     FOREIGN KEY (test_definition_id) REFERENCES main_log_sheet_test_definitions(id),
     UNIQUE KEY uniq_sheet_test (main_log_sheet_id, test_definition_id)
 ) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- Audit / admin tables (schema_v9)
+-- activity_logs: lab actions recorded via lab_log_activity()
+-- login_logs:    login attempts recorded by auth/login.php
+-- users.is_admin is added only if the users table exists.
+-- ------------------------------------------------------------
+
+SET @has_users := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
+);
+SET @has_is_admin := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      AND COLUMN_NAME = 'is_admin'
+);
+SET @add_is_admin := IF(
+    @has_users > 0 AND @has_is_admin = 0,
+    'ALTER TABLE users ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1'
+);
+PREPARE stmt_is_admin FROM @add_is_admin;
+EXECUTE stmt_is_admin;
+DEALLOCATE PREPARE stmt_is_admin;
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NULL,
+    username VARCHAR(100) NULL,
+    action VARCHAR(100) NOT NULL,
+    details TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_activity_action (action),
+    INDEX idx_activity_created (created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS login_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) NULL,
+    success TINYINT(1) NOT NULL DEFAULT 0,
+    ip_address VARCHAR(45) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_login_created (created_at)
+) ENGINE=InnoDB;

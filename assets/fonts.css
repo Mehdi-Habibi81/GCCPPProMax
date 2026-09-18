@@ -1,0 +1,45 @@
+/*
+  Shared IRANSans web font for the whole site (auth pages + lab
+  module), excluding the exported Word document (which uses
+  Tahoma, per the requirement that only the DOCX output stays as-is).
+
+  SETUP (you need to do this once):
+  1. Download the "IRANSansWeb" webfont family (woff2 + woff files
+     for at least Regular and Bold weights) from a source you trust
+     for licensing — e.g. your own purchased/licensed copy, or the
+     font vendor's official site.
+  2. Place the files here:
+       /assets/fonts/IRANSansWeb.woff2
+       /assets/fonts/IRANSansWeb.woff
+       /assets/fonts/IRANSansWeb_Bold.woff2
+       /assets/fonts/IRANSansWeb_Bold.woff
+     (rename whatever you download to match these names, or edit
+     the src paths below to match your actual filenames)
+  3. Include this stylesheet in every page's <head>:
+       <link rel="stylesheet" href="/assets/fonts.css">
+     (adjust the leading path if a page isn't at the site root —
+     e.g. from auth/login.php it's the same "/assets/fonts.css"
+     since it's an absolute path)
+*/
+
+@font-face {
+    font-family: 'IRANSans';
+    src: url('/assets/fonts/IRANSansWeb.woff2') format('woff2'),
+         url('/assets/fonts/IRANSansWeb.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'IRANSans';
+    src: url('/assets/fonts/IRANSansWeb_Bold.woff2') format('woff2'),
+         url('/assets/fonts/IRANSansWeb_Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+body {
+    font-family: 'IRANSans', Tahoma, sans-serif;
+}

@@ -24,42 +24,66 @@ $mainLogSheetId = lab_get_or_create_main_sheet($pdo, $sampleId);
 $success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $results = $_POST['results'] ?? [];
+    if (isset($_POST['transfer_internal'])) {
+        $testResultId    = (int)($_POST['test_result_id'] ?? 0);
+        $testDefinitionId = (int)($_POST['test_definition_id'] ?? 0);
 
-    foreach ($results as $testDefinitionId => $value) {
-        lab_save_main_sheet_result($pdo, $mainLogSheetId, (int)$testDefinitionId, trim((string)$value));
+        if ($testResultId > 0 && $testDefinitionId > 0
+            && lab_transfer_internal_result_to_main_sheet($pdo, $sampleId, $testResultId, $testDefinitionId)
+        ) {
+            $success = 'نتیجه به این لاگ‌شیت اصلی منتقل شد.';
+            lab_log_activity($pdo, 'internal_result_transferred', 'نمونه: ' . $sample['sample_number']);
+        } else {
+            $success = 'انتقال انجام نشد؛ مجدد تلاش کنید.';
+        }
+    } else {
+        $results = $_POST['results'] ?? [];
+
+        foreach ($results as $testDefinitionId => $value) {
+            lab_save_main_sheet_result($pdo, $mainLogSheetId, (int)$testDefinitionId, trim((string)$value));
+        }
+        lab_log_activity($pdo, 'main_sheet_results_saved', 'نمونه: ' . $sample['sample_number']);
+
+        if (isset($_POST['finalize'])) {
+            $stmt = $pdo->prepare(
+                "UPDATE main_log_sheets SET status = 'final', compiled_date = CURDATE() WHERE id = :id"
+            );
+            $stmt->execute(['id' => $mainLogSheetId]);
+
+            $stmt = $pdo->prepare("UPDATE samples SET status = 'completed' WHERE id = :id");
+            $stmt->execute(['id' => $sampleId]);
+
+            lab_log_activity($pdo, 'main_sheet_finalized', 'نمونه: ' . $sample['sample_number']);
+        }
+
+        if (isset($_POST['mark_sent'])) {
+            $cmmsRef = trim($_POST['cmms_reference_no'] ?? '');
+            $stmt = $pdo->prepare(
+                "UPDATE main_log_sheets
+                 SET status = 'sent', sent_to_cmms_date = CURDATE(), cmms_reference_no = :ref
+                 WHERE id = :id"
+            );
+            $stmt->execute([
+                'ref' => $cmmsRef !== '' ? $cmmsRef : null,
+                'id'  => $mainLogSheetId,
+            ]);
+
+            $stmt = $pdo->prepare("UPDATE samples SET status = 'sent' WHERE id = :id");
+            $stmt->execute(['id' => $sampleId]);
+
+            lab_log_activity($pdo, 'sent_to_cmms', 'نمونه: ' . $sample['sample_number'] . ' — پیگیری: ' . ($cmmsRef !== '' ? $cmmsRef : '—'));
+        }
+
+        $success = 'ذخیره شد.';
     }
-
-    if (isset($_POST['finalize'])) {
-        $stmt = $pdo->prepare(
-            "UPDATE main_log_sheets SET status = 'final', compiled_date = CURDATE() WHERE id = :id"
-        );
-        $stmt->execute(['id' => $mainLogSheetId]);
-
-        $stmt = $pdo->prepare("UPDATE samples SET status = 'completed' WHERE id = :id");
-        $stmt->execute(['id' => $sampleId]);
-    }
-
-    if (isset($_POST['mark_sent'])) {
-        $cmmsRef = trim($_POST['cmms_reference_no'] ?? '');
-        $stmt = $pdo->prepare(
-            "UPDATE main_log_sheets
-             SET status = 'sent', sent_to_cmms_date = CURDATE(), cmms_reference_no = :ref
-             WHERE id = :id"
-        );
-        $stmt->execute([
-            'ref' => $cmmsRef !== '' ? $cmmsRef : null,
-            'id'  => $mainLogSheetId,
-        ]);
-
-        $stmt = $pdo->prepare("UPDATE samples SET status = 'sent' WHERE id = :id");
-        $stmt->execute(['id' => $sampleId]);
-    }
-
-    $success = 'ذخیره شد.';
 }
 
 $rows = lab_get_main_sheet_rows($pdo, $mainLogSheetId, (int)$sample['main_log_sheet_type_id']);
+
+$pendingInternalResults = array_values(array_filter(
+    lab_get_sample_internal_results($pdo, $sampleId),
+    fn(array $r): bool => !(int)$r['is_used_in_main_sheet']
+));
 
 $sheetStmt = $pdo->prepare("SELECT status, compiled_date, sent_to_cmms_date, cmms_reference_no FROM main_log_sheets WHERE id = :id");
 $sheetStmt->execute(['id' => $mainLogSheetId]);
@@ -69,9 +93,10 @@ $sheetInfo = $sheetStmt->fetch();
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/assets/fonts.css">
     <title>لاگ‌شیت اصلی — <?= htmlspecialchars($sample['sample_number']) ?></title>
     <style>
-        body { font-family: Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
+        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
         .card { background:#fff; border-radius:10px; padding:24px; max-width:960px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
         h1 { font-size:20px; margin-top:0; }
         .back-link { display:inline-block; margin-bottom:16px; color:#2f6fed; text-decoration:none; font-size:14px; }
@@ -179,6 +204,60 @@ $sheetInfo = $sheetStmt->fetch();
                 دانلود فایل Word
             </a>
         </div>
+
+        <?php if ($pendingInternalResults): ?>
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+                <h1 style="font-size:16px;">انتقال نتایج از لاگ‌شیت‌های داخلی</h1>
+                <p style="font-size:13px;color:#555;margin:6px 0 12px;">
+                    این نتایج برای این نمونه در لاگ‌شیت‌های داخلی ثبت شده و هنوز به این لاگ‌شیت منتقل نشده‌اند.
+                    برای هر مورد ردیف آزمایش موردنظر را انتخاب و «انتقال» را بزنید.
+                    ردیف‌هایی که ✓ دارند با نوع آزمایشِ لاگ‌شیت داخلی مطابقت دارند.
+                </p>
+                <?php if (!$rows): ?>
+                    <p style="color:#999;font-size:13px;">برای این نوع لاگ‌شیت هنوز ردیف آزمایشی تعریف نشده است؛ نمی‌توان نتیجه‌ای منتقل کرد.</p>
+                <?php else: ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>لاگ‌شیت داخلی</th>
+                            <th>نتیجه</th>
+                            <th>تاریخ آزمایش</th>
+                            <th>انتقال به ردیف آزمایش</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendingInternalResults as $ir): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($ir['test_type_name'] . ($ir['unit'] ? ' (' . $ir['unit'] . ')' : '')) ?></td>
+                                <td><?= htmlspecialchars($ir['result_value']) ?></td>
+                                <td><?= htmlspecialchars($ir['tested_date_fa']) ?></td>
+                                <td>
+                                    <form method="post" style="display:flex;gap:6px;max-width:540px;">
+                                        <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+                                        <input type="hidden" name="test_result_id" value="<?= (int)$ir['id'] ?>">
+                                        <select name="test_definition_id" required style="margin:0;">
+                                            <option value="">— انتخاب ردیف آزمایش —</option>
+                                            <?php foreach ($rows as $r):
+                                                $isMatch = str_starts_with((string)$r['test_name'], (string)$ir['test_type_name']);
+                                            ?>
+                                                <option value="<?= (int)$r['test_definition_id'] ?>">
+                                                    <?= (int)$r['row_order'] ?> — <?= htmlspecialchars(str_replace(' — NEEDS VERIFICATION', '', $r['test_name'])) ?><?= $isMatch ? ' ✓' : '' ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" name="transfer_internal" value="1"
+                                                style="margin-top:0;padding:8px 14px;background:#1e7e34;white-space:nowrap;">
+                                            انتقال
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <?php if (in_array($sheetInfo['status'], ['final', 'sent'], true)): ?>
             <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">

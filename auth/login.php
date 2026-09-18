@@ -61,6 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['2fa_user_id'] = $user['id'];
                         $_SESSION['2fa_username'] = $user['username'];
 
+                        log_login_attempt($pdo, $username, true);
+
                         // Redirect to 2FA verification
                         header("Location: 2fa_verify");
                         exit();
@@ -76,6 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['user_id'] = $user['id'];
                         $_SESSION['username'] = $user['username'];
 
+                        log_login_attempt($pdo, $username, true);
+
                         $_SESSION['flash_message'] = is_persian()
                             ? 'خوش آمدید، ' . $user['username'] . '!'
                             : 'Welcome back, ' . $user['username'] . '!';
@@ -84,12 +88,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         exit();
                     }
 
-                } else {
+} else {
 
-                    $error = is_persian()
-                        ? 'نام کاربری یا رمز عبور نادرست است!'
-                        : 'Invalid username or password!';
-                }
+                        $error = is_persian()
+                            ? 'نام کاربری یا رمز عبور نادرست است!'
+                            : 'Invalid username or password!';
+
+                        log_login_attempt($pdo, $username, false);
+                    }
 
             } catch (PDOException $e) {
 

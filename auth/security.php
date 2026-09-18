@@ -197,6 +197,28 @@ function rate_limit_clear(string $action): void
  * ============================================================ */
 
 /**
+ * Record a login attempt in login_logs (anti-forensics / admin audit).
+ * Fails safe: a logging error is logged to error_log but never
+ * breaks the login flow itself.
+ */
+function log_login_attempt(PDO $pdo, string $username, bool $success): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            "INSERT INTO login_logs (username, success, ip_address)
+             VALUES (:username, :success, :ip_address)"
+        );
+        $stmt->execute([
+            'username'   => $username !== '' ? $username : null,
+            'success'    => $success ? 1 : 0,
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+    } catch (\Throwable $e) {
+        error_log('log_login_attempt failed: ' . $e->getMessage());
+    }
+}
+
+/**
  * Regenerate session ID and set a fresh token (called after login).
  */
 function session_harden(): void

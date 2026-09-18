@@ -25,6 +25,83 @@ function lab_require_login(): void
 }
 
 /**
+ * Is the currently-logged-in user an admin? Requires the
+ * is_admin column added in schema_v9.sql.
+ */
+function lab_is_admin(PDO $pdo): bool
+{
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id LIMIT 1");
+    $stmt->execute(['id' => $_SESSION['user_id']]);
+    return (int)($stmt->fetchColumn() ?: 0) === 1;
+}
+
+/**
+ * Redirect away (to the dashboard) unless the current user is an
+ * admin. Call this at the top of admin-only pages.
+ */
+function lab_require_admin(PDO $pdo): void
+{
+    lab_require_login();
+    if (!lab_is_admin($pdo)) {
+        header('Location: /dashboard');
+        exit;
+    }
+}
+
+/**
+ * Record one row in activity_logs. Call this right after any
+ * meaningful lab action (sample created/edited, result recorded,
+ * main sheet finalized/sent, etc).
+ */
+function lab_log_activity(PDO $pdo, string $action, ?string $details = null): void
+{
+    $userId = $_SESSION['user_id'] ?? null;
+    $username = null;
+
+    if ($userId) {
+        $stmt = $pdo->prepare("SELECT username FROM users WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => $userId]);
+        $username = $stmt->fetchColumn() ?: null;
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO activity_logs (user_id, username, action, details)
+         VALUES (:user_id, :username, :action, :details)"
+    );
+    $stmt->execute([
+        'user_id'  => $userId,
+        'username' => $username,
+        'action'   => $action,
+        'details'  => $details,
+    ]);
+}
+
+/**
+ * Recent activity log entries for the admin log viewer.
+ */
+function lab_get_activity_logs(PDO $pdo, int $limit = 200): array
+{
+    $stmt = $pdo->prepare("SELECT * FROM activity_logs ORDER BY id DESC LIMIT :limit");
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+/**
+ * Recent login attempts (success and failure) for the admin log viewer.
+ */
+function lab_get_login_logs(PDO $pdo, int $limit = 200): array
+{
+    $stmt = $pdo->prepare("SELECT * FROM login_logs ORDER BY id DESC LIMIT :limit");
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
+/**
  * All 9 sample types, ordered by code, for the dropdown.
  */
 function lab_get_sample_types(PDO $pdo): array
@@ -308,4 +385,95 @@ function lab_save_main_sheet_result(PDO $pdo, int $mainLogSheetId, int $testDefi
         'test_definition_id' => $testDefinitionId,
         'result_value'       => $resultValue,
     ]);
+}
+
+/**
+ * All internal log sheet results recorded for one sample (across all
+ * test types), with the test type name/unit and transfer status.
+ */
+function lab_get_sample_internal_results(PDO $pdo, int $sampleId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT tr.id, tr.result_value, tr.tested_date, tr.is_used_in_main_sheet,
+                t.id AS test_type_id, t.name AS test_type_name, t.unit,
+                ils.title AS internal_sheet_title
+         FROM test_results tr
+         JOIN internal_log_sheets ils ON tr.internal_log_sheet_id = ils.id
+         JOIN test_types t ON ils.test_type_id = t.id
+         WHERE tr.sample_id = :sample_id
+         ORDER BY tr.id DESC"
+    );
+    $stmt->execute(['sample_id' => $sampleId]);
+    $rows = $stmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        $row['tested_date_fa'] = lab_gregorian_to_jalali($row['tested_date']);
+    }
+
+    return $rows;
+}
+
+/**
+ * Find the single main-log-sheet test definition that this internal
+ * test type maps to (matched by name prefix, e.g. test type
+ * "دانسیته" -> test definition "دانسیته در 15 درجه سانتیگراد").
+ *
+ * Returns null when there is no match OR more than one match (e.g.
+ * "ویسکوزیته 40" vs "ویسکوزیته 100"), so the caller falls back to
+ * asking the user which row to use.
+ */
+function lab_find_matching_test_definition(PDO $pdo, int $mainLogSheetTypeId, int $testTypeId): ?int
+{
+    $nameStmt = $pdo->prepare("SELECT name FROM test_types WHERE id = :id");
+    $nameStmt->execute(['id' => $testTypeId]);
+    $testTypeName = (string)$nameStmt->fetchColumn();
+    if ($testTypeName === '') {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT id, test_name FROM main_log_sheet_test_definitions
+         WHERE main_log_sheet_type_id = :type_id
+         ORDER BY row_order"
+    );
+    $stmt->execute(['type_id' => $mainLogSheetTypeId]);
+
+    $matches = [];
+    foreach ($stmt->fetchAll() as $d) {
+        if (str_starts_with((string)$d['test_name'], $testTypeName)) {
+            $matches[] = (int)$d['id'];
+        }
+    }
+
+    return count($matches) === 1 ? $matches[0] : null;
+}
+
+/**
+ * Copy one internal-log-sheet result into the sample's main log sheet
+ * (creating the main sheet if needed) and mark it as transferred.
+ * Returns false when the result is missing/empty or not owned by the sample.
+ */
+function lab_transfer_internal_result_to_main_sheet(PDO $pdo, int $sampleId, int $testResultId, int $testDefinitionId): bool
+{
+    $stmt = $pdo->prepare(
+        "SELECT result_value FROM test_results
+         WHERE id = :id AND sample_id = :sample_id
+         LIMIT 1"
+    );
+    $stmt->execute(['id' => $testResultId, 'sample_id' => $sampleId]);
+    $value = $stmt->fetchColumn();
+
+    if ($value === false || trim((string)$value) === '') {
+        return false;
+    }
+
+    $mainLogSheetId = lab_get_or_create_main_sheet($pdo, $sampleId);
+    lab_save_main_sheet_result($pdo, $mainLogSheetId, $testDefinitionId, trim((string)$value));
+
+    $upd = $pdo->prepare(
+        "UPDATE test_results SET is_used_in_main_sheet = 1 WHERE id = :id"
+    );
+    $upd->execute(['id' => $testResultId]);
+
+    return true;
 }

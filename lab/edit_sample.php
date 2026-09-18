@@ -12,6 +12,12 @@ if ($id <= 0) {
     exit;
 }
 
+$sample = lab_get_sample_by_id($pdo, $id);
+if (!$sample) {
+    header('Location: /lab/indicator.php');
+    exit;
+}
+
 $errors = [];
 $success = null;
 
@@ -71,22 +77,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $success = 'تغییرات با موفقیت ذخیره شد.';
+        lab_log_activity($pdo, 'sample_edited', 'شماره نمونه: ' . $sample['sample_number']);
     }
-}
-
-$sample = lab_get_sample_by_id($pdo, $id);
-if (!$sample) {
-    header('Location: /lab/indicator.php');
-    exit;
 }
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="/assets/fonts.css">
     <title>ویرایش نمونه — <?= htmlspecialchars($sample['sample_number']) ?></title>
     <style>
-        body { font-family: Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
+        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
         .card { background:#fff; border-radius:10px; padding:24px; max-width:820px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
         h1 { font-size:20px; margin-top:0; }
         .subtitle { color:#777; font-size:13px; margin-top:-8px; margin-bottom:16px; }
@@ -181,4 +183,4 @@ if (!$sample) {
     </div>
 
 </body>
-</html>س
+</html>
