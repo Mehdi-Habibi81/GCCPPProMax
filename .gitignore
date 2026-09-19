@@ -14,6 +14,7 @@ auth/.installed
 .idea/
 *.swp
 .continue
+lab/exports/
 # OS files
 .DS_Store
 Thumbs.db
