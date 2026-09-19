@@ -1,12 +1,25 @@
+@font-face {
+    font-family: "A Iranian Sans";
+    src: url("fonts/IranianSans.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     box-sizing: border-box;
+}
+
+html,
+body {
+    font-family: "A Iranian Sans", Tahoma, Arial, sans-serif !important;
 }
 
 body {
     margin: 0;
     min-height: 100vh;
 
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "A Iranian Sans", Tahoma, Arial, sans-serif !important;
 
     background:
         radial-gradient(circle at top left, #2563eb, transparent 35%),
@@ -19,22 +32,26 @@ body {
     color: #0f172a;
 }
 
+body[dir="rtl"] {
+    font-family: "A Iranian Sans", Tahoma, Arial, sans-serif !important;
+}
+
+input,
+button,
+select,
+textarea {
+    font-family: "A Iranian Sans", Tahoma, Arial, sans-serif !important;
+}
+
 .auth-container {
     width: 100%;
     max-width: 430px;
     padding: 20px;
 }
 
-body[dir="rtl"] {
-    font-family: Tahoma, Arial, sans-serif;
-}
-
 body[dir="rtl"] .auth-card,
 body[dir="rtl"] .form-group,
-body[dir="rtl"] .auth-links {
-    text-align: right;
-}
-
+body[dir="rtl"] .auth-links,
 body[dir="rtl"] .security-card {
     text-align: right;
 }
@@ -232,14 +249,12 @@ button:hover {
 }
 
 @media (max-width: 480px) {
-
     .auth-container {
         padding: 15px;
     }
 
     .auth-card {
         padding: 30px 22px;
-
         border-radius: 20px;
     }
 
