@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 require 'config.php';
 require_once 'security.php';
 require_once 'lang.php';
@@ -12,7 +14,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-
 $google2fa = new Google2FA();
 
 $userId = $_SESSION['user_id'];
@@ -23,6 +24,7 @@ $stmt = $pdo->prepare(
      WHERE id = ?
      LIMIT 1"
 );
+
 $stmt->execute([$userId]);
 
 $user = $stmt->fetch();
@@ -36,106 +38,133 @@ if (!$user) {
 $error = '';
 $success = '';
 
+$originalSecret = null;
+
 /*
- * If 2FA is already enabled, don't generate a new secret.
+ * If 2FA is already enabled, nothing needs to be generated
+ * or decrypted for the setup page.
  */
-if ($user['two_factor_enabled']) {
+if ((int)$user['two_factor_enabled'] === 1) {
+
     $success = t('already_enabled');
-}
 
-/*
- * Generate a new secret if the user doesn't have one.
- */
-if (!$user['two_factor_enabled'] && empty($user['two_factor_secret'])) {
+} else {
 
-    $secret = $google2fa->generateSecretKey();
+    /*
+     * Generate a new secret if the user doesn't have one.
+     */
+    if (empty($user['two_factor_secret'])) {
 
-    $originalSecret = $secret;
-    //reverse
+        $originalSecret = $google2fa->generateSecretKey();
 
-    $encryptedSecret = encrypt_totp_secret($secret);
+        $encryptedSecret = encrypt_totp_secret($originalSecret);
 
-    $stmt = $pdo->prepare(
-        "UPDATE users
-         SET two_factor_secret = ?
-         WHERE id = ?"
-    );
+        $stmt = $pdo->prepare(
+            "UPDATE users
+             SET two_factor_secret = ?
+             WHERE id = ?"
+        );
 
-    $stmt->execute([$encryptedSecret, $userId]);
+        $stmt->execute([
+            $encryptedSecret,
+            $userId
+        ]);
 
-    $user['two_factor_secret'] = $encryptedSecret;
-}
-
-/*
- * Verify the first authenticator code.
- */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$user['two_factor_enabled']) {
-
-    $code = trim($_POST['code'] ?? '');
-
-    if (!preg_match('/^[0-9]{6}$/', $code)) {
-
-        $error = is_persian()
-            ? 'لطفاً کد ۶ رقمی Google Authenticator را وارد کنید.'
-            : 'Please enter the 6-digit code from Google Authenticator.';
+        /*
+         * Keep the encrypted value in the local user array
+         * so the current request remains consistent.
+         */
+        $user['two_factor_secret'] = $encryptedSecret;
 
     } else {
 
-        $originalSecret = decrypt_totp_secret($user['two_factor_secret']);
-
-        $valid = $google2fa->verifyKey(
-            $originalSecret,
-            $code
+        /*
+         * An existing secret is already stored.
+         * Decrypt it and use the decrypted value for
+         * the QR code and verification.
+         */
+        $originalSecret = decrypt_totp_secret(
+            (string)$user['two_factor_secret']
         );
+    }
 
-        if ($valid) {
+    /*
+     * Verify the first authenticator code.
+     */
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-            $stmt = $pdo->prepare(
-                "UPDATE users
-                 SET two_factor_enabled = 1,
-                     two_factor_secret = ?
-                 WHERE id = ?"
-            );
+        $code = trim($_POST['code'] ?? '');
 
-            $stmt->execute([
-                encrypt_totp_secret($originalSecret),
-                $userId
-            ]);
+        if (!preg_match('/^[0-9]{6}$/', $code)) {
 
-            $user['two_factor_enabled'] = 1;
-
-            $success = t('enabled_success');
+            $error = is_persian()
+                ? 'لطفاً کد ۶ رقمی Google Authenticator را وارد کنید.'
+                : 'Please enter the 6-digit code from Google Authenticator.';
 
         } else {
 
-            $error = is_persian()
-                ? 'کد تأیید نادرست است. دوباره تلاش کنید.'
-                : 'Invalid verification code. Please try again.';
+            $valid = $google2fa->verifyKey(
+                $originalSecret,
+                $code
+            );
 
+            if ($valid) {
+
+                /*
+                 * The secret is already encrypted and stored.
+                 * We only need to enable 2FA.
+                 */
+                $stmt = $pdo->prepare(
+                    "UPDATE users
+                     SET two_factor_enabled = 1
+                     WHERE id = ?"
+                );
+
+                $stmt->execute([$userId]);
+
+                $user['two_factor_enabled'] = 1;
+
+                $success = t('enabled_success');
+
+            } else {
+
+                $error = is_persian()
+                    ? 'کد تأیید نادرست است. دوباره تلاش کنید.'
+                    : 'Invalid verification code. Please try again.';
+            }
         }
     }
 }
 
 /*
  * Generate the Google Authenticator URI.
+ *
+ * Only generate the QR code while 2FA is not enabled.
  */
-$companyName = 'My Website';
+$qrSecret = null;
+$qrUrl = null;
 
-$qrSecret = $originalSecret ?? decrypt_totp_secret($user['two_factor_secret']);
+if ((int)$user['two_factor_enabled'] === 0 && $originalSecret !== null) {
 
-$qrUrl = $google2fa->getQRCodeUrl(
-    $companyName,
-    $user['email'],
-    $qrSecret
-);
+    $companyName = 'My Website';
+
+    $qrSecret = $originalSecret;
+
+    $qrUrl = $google2fa->getQRCodeUrl(
+        $companyName,
+        $user['email'],
+        $qrSecret
+    );
+}
+
 ?>
 
 <!DOCTYPE html>
-<html>s
+<html>
 
 <head>
 
-    <title><?php echo t('setup_twofa'); ?></title>
+    <title><?php echo htmlspecialchars(t('setup_twofa'), ENT_QUOTES, 'UTF-8'); ?></title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -180,7 +209,10 @@ $qrUrl = $google2fa->getQRCodeUrl(
 
 </head>
 
-<body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
+<body
+    dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>"
+    lang="<?php echo is_persian() ? 'fa' : 'en'; ?>"
+>
 
 <div class="auth-container">
 
@@ -190,8 +222,19 @@ $qrUrl = $google2fa->getQRCodeUrl(
             🔐
         </div>
 
-        <div class="language-switch"><a href="<?php echo htmlspecialchars(language_url($currentLanguage === 'fa' ? 'en' : 'fa'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo t('language'); ?></a></div>
-        <h1><?php echo t('setup_twofa'); ?></h1>
+        <div class="language-switch">
+            <a href="<?php echo htmlspecialchars(
+                language_url($currentLanguage === 'fa' ? 'en' : 'fa'),
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>">
+                <?php echo t('language'); ?>
+            </a>
+        </div>
+
+        <h1>
+            <?php echo htmlspecialchars(t('setup_twofa'), ENT_QUOTES, 'UTF-8'); ?>
+        </h1>
 
         <?php if (!empty($error)): ?>
 
@@ -209,76 +252,94 @@ $qrUrl = $google2fa->getQRCodeUrl(
 
         <?php endif; ?>
 
-        <?php if (!$user['two_factor_enabled']): ?>
+        <?php if ((int)$user['two_factor_enabled'] === 0): ?>
 
-            <div class="twofa-box">
+            <?php if ($qrUrl !== null && $qrSecret !== null): ?>
 
-                <p>
-                    <?php echo t('scan_qr'); ?>
-                </p>
+                <div class="twofa-box">
 
-                <img
-                    class="qr-code"
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode($qrUrl); ?>"
-                    alt="<?php echo is_persian() ? 'کد QR Google Authenticator' : 'Google Authenticator QR Code'; ?>"
-                >
+                    <p>
+                        <?php echo t('scan_qr'); ?>
+                    </p>
 
-                <p>
-                    <?php echo t('manual_secret'); ?>
-                </p>
+                    <img
+                        class="qr-code"
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=<?php echo urlencode($qrUrl); ?>"
+                        alt="<?php echo is_persian()
+                            ? 'کد QR Google Authenticator'
+                            : 'Google Authenticator QR Code'; ?>"
+                    >
 
-                <div class="secret">
-                    <?php echo htmlspecialchars($qrSecret, ENT_QUOTES, 'UTF-8'); ?>
-                </div>
+                    <p>
+                        <?php echo t('manual_secret'); ?>
+                    </p>
 
-                <div class="twofa-instructions">
+                    <div class="secret">
+                        <?php echo htmlspecialchars(
+                            $qrSecret,
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>
+                    </div>
 
-                    <ol>
+                    <div class="twofa-instructions">
 
-                        <li>
-                            <?php echo is_persian() ? 'Google Authenticator را نصب کنید.' : 'Install Google Authenticator.'; ?>
-                        </li>
+                        <ol>
 
-                        <li>
-                            <?php echo is_persian() ? 'کد QR بالا را اسکن کنید.' : 'Scan the QR code above.'; ?>
-                        </li>
+                            <li>
+                                <?php echo is_persian()
+                                    ? 'Google Authenticator را نصب کنید.'
+                                    : 'Install Google Authenticator.'; ?>
+                            </li>
 
-                        <li>
-                            <?php echo is_persian() ? 'کد ۶ رقمی برنامه را وارد کنید.' : 'Enter the 6-digit code shown in the app.'; ?>
-                        </li>
+                            <li>
+                                <?php echo is_persian()
+                                    ? 'کد QR بالا را اسکن کنید.'
+                                    : 'Scan the QR code above.'; ?>
+                            </li>
 
-                    </ol>
+                            <li>
+                                <?php echo is_persian()
+                                    ? 'کد ۶ رقمی برنامه را وارد کنید.'
+                                    : 'Enter the 6-digit code shown in the app.'; ?>
+                            </li>
 
-                </div>
-
-                <form method="POST">
-
-                    <div class="form-group">
-
-                        <label>
-                            <?php echo t('auth_code'); ?>
-                        </label>
-
-                        <input
-                            type="text"
-                            name="code"
-                            inputmode="numeric"
-                            autocomplete="one-time-code"
-                            maxlength="6"
-                            pattern="[0-9]{6}"
-                            placeholder="<?php echo is_persian() ? 'کد ۶ رقمی را وارد کنید' : 'Enter 6-digit code'; ?>"
-                            required
-                        >
+                        </ol>
 
                     </div>
 
-                    <button type="submit">
-                        <?php echo t('enable_twofa'); ?>
-                    </button>
+                    <form method="POST">
 
-                </form>
+                        <div class="form-group">
 
-            </div>
+                            <label>
+                                <?php echo t('auth_code'); ?>
+                            </label>
+
+                            <input
+                                type="text"
+                                name="code"
+                                inputmode="numeric"
+                                autocomplete="one-time-code"
+                                maxlength="6"
+                                pattern="[0-9]{6}"
+                                placeholder="<?php echo is_persian()
+                                    ? 'کد ۶ رقمی را وارد کنید'
+                                    : 'Enter 6-digit code'; ?>"
+                                required
+                            >
+
+                        </div>
+
+                        <button type="submit">
+                            <?php echo t('enable_twofa'); ?>
+                        </button>
+
+                    </form>
+
+                </div>
+
+            <?php endif; ?>
 
         <?php else: ?>
 
