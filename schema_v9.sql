@@ -1,49 +1,63 @@
 -- ============================================================
--- schema_v9 — Admin/audit tables for an EXISTING installation
--- Run against the live database once (idempotent, safe to re-run):
---   mysql -u <app_user> -p <dbname> < schema_v9.sql
---
--- Adds:
---   - users.is_admin  (only if a users table exists)
---   - activity_logs   (lab actions via lab_log_activity())
---   - login_logs      (login attempts via auth/login.php)
+-- Lab digitization module — schema v9
+-- 1) Adds is_admin flag to users (needed to gate the log viewer)
+-- 2) Adds login_logs and activity_logs tables
+-- 3) Adds the remaining internal-log-sheet test types so every
+--    paper form (داخلی.pdf) has a matching test type
 -- ============================================================
 
-SET @has_users := (
-    SELECT COUNT(*) FROM information_schema.TABLES
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'
-);
+-- ------------------------------------------------------------
+-- 1) Admin flag
+-- ------------------------------------------------------------
 SET @has_is_admin := (
     SELECT COUNT(*) FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'users'
-      AND COLUMN_NAME = 'is_admin'
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_admin'
 );
-SET @add_is_admin := IF(
-    @has_users > 0 AND @has_is_admin = 0,
+SET @add_is_admin_sql := IF(@has_is_admin = 0,
     'ALTER TABLE users ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0',
-    'SELECT 1'
-);
-PREPARE stmt_is_admin FROM @add_is_admin;
-EXECUTE stmt_is_admin;
-DEALLOCATE PREPARE stmt_is_admin;
+    'SELECT 1');
+PREPARE stmt FROM @add_is_admin_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- IMPORTANT: after running this, make yourself admin, e.g.:
+--   UPDATE users SET is_admin = 1 WHERE username = 'your_username';
+
+-- ------------------------------------------------------------
+-- 2) Log tables
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS login_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    username VARCHAR(100) NOT NULL,
+    success TINYINT(1) NOT NULL,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS activity_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT UNSIGNED NULL,
-    username VARCHAR(100) NULL,
+    user_id INT NULL,
+    username VARCHAR(100),
     action VARCHAR(100) NOT NULL,
-    details TEXT NULL,
+    details VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_activity_action (action),
-    INDEX idx_activity_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS login_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) NULL,
-    success TINYINT(1) NOT NULL DEFAULT 0,
-    ip_address VARCHAR(45) NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_login_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ------------------------------------------------------------
+-- 3) Remaining internal-log-sheet test types
+--    (دانسیته / ویسکوزیته already exist as ids 1 و 2)
+-- ------------------------------------------------------------
+INSERT IGNORE INTO test_types (id, name, unit) VALUES
+    (3,  'توانائی جداسازی هوا', 'min'),
+    (4,  'توانائی جداسازی آب', 'Sec'),
+    (5,  'اندازه‌گیری کف', 'cm3'),
+    (6,  'مقدار آب', '%wt'),
+    (7,  'عدد خنثی‌سازی', 'mgKOH/g'),
+    (8,  'نقطه ابری شدن', 'C'),
+    (9,  'نقطه انجماد', 'C'),
+    (10, 'نقطه ریزش', 'C'),
+    (11, 'خوردگی مس', NULL),
+    (12, 'خوردگی فولاد', NULL);
