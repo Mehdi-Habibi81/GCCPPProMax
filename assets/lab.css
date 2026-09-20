@@ -1,0 +1,334 @@
+/* ============================================================
+   Shared stylesheet for the lab module (indicator, internal &
+   main log sheets, analytics, limits, admin logs).
+   Designed RTL; relies on /assets/fonts.css for the body font
+   (falls back to Tahoma when the webfont files are absent).
+   ============================================================ */
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #eef2f7;
+    color: #1f2937;
+    font-family: 'IRANSans', Tahoma, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { margin: 0 0 12px; color: #111827; }
+h1 { font-size: 19px; }
+
+/* ---------------- Top navigation ---------------- */
+
+.topnav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.topnav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    min-height: 56px;
+}
+
+.topnav .brand {
+    font-weight: bold;
+    color: #2563eb;
+    margin-left: 16px;
+    white-space: nowrap;
+}
+
+.topnav a {
+    color: #374151;
+    padding: 10px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.topnav a:hover { background: #eff6ff; color: #2563eb; text-decoration: none; }
+.topnav a.active { background: #2563eb; color: #fff; }
+
+.topnav .spacer { flex: 1 1 auto; }
+.topnav .user-chip { color: #6b7280; font-size: 13px; padding: 0 8px; white-space: nowrap; }
+.topnav .logout { color: #dc2626; }
+
+/* ---------------- Layout ---------------- */
+
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+.container-wide { max-width: 1360px; }
+
+/* Fixed developer signature, bottom-left corner */
+.site-signature {
+    position: fixed;
+    bottom: 10px;
+    left: 12px;
+    z-index: 60;
+    font-family: 'IRANSans', Tahoma, Arial, sans-serif;
+    font-size: 11px;
+    color: #6b7280;
+    background: rgba(255, 255, 255, 0.75);
+    padding: 4px 12px;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.card h1 { font-size: 19px; }
+.card h2 { font-size: 16px; margin-top: 6px; }
+
+.muted { color: #6b7280; }
+.small { font-size: 12px; }
+
+.back-link { display: inline-block; margin-bottom: 14px; color: #2563eb; }
+
+.nav-line { margin-bottom: 14px; }
+.nav-line a { margin-left: 14px; }
+
+/* ---------------- Forms ---------------- */
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+
+label { display: block; margin: 14px 0 5px; font-size: 14px; color: #374151; }
+label .optional { color: #9ca3af; font-weight: normal; font-size: 12px; }
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    color: #111827;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+input[readonly] { background: #f3f4f6; color: #6b7280; }
+
+form.inline { display: flex; gap: 6px; align-items: center; }
+
+/* ---------------- Buttons ---------------- */
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    background: #2563eb;
+    color: #fff;
+    margin-top: 16px;
+}
+
+.btn:hover { background: #1d4ed8; text-decoration: none; }
+
+.btn-green { background: #1e7e34; }
+.btn-green:hover { background: #166028; }
+
+.btn-gray { background: #6b7280; }
+.btn-gray:hover { background: #4b5563; }
+
+.btn-red { background: #dc2626; }
+.btn-red:hover { background: #b91c1c; }
+
+.btn-sm { padding: 6px 12px; font-size: 13px; margin-top: 0; }
+
+/* ---------------- Messages ---------------- */
+
+.msg-success {
+    background: #e6f4ea; color: #14532d;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid #bbf7d0; margin-bottom: 14px;
+}
+
+.msg-error {
+    background: #fdecea; color: #7f1d1d;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid #fecaca; margin-bottom: 14px;
+}
+
+.msg-info {
+    background: #eff6ff; color: #1e3a8a;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid #bfdbfe; margin-bottom: 14px;
+}
+
+/* ---------------- Tables ---------------- */
+
+.tablewrap { overflow-x: auto; }
+
+table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+table.data th, table.data td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #eef0f3;
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+table.data th {
+    color: #6b7280;
+    font-weight: normal;
+    background: #f9fafb;
+    font-size: 12px;
+}
+
+table.data tr:hover td { background: #f8fafc; }
+
+.empty-cell, .empty-row {
+    color: #b0b6c0;
+}
+
+/* Small action links inside tables */
+.tbl-link { color: #2563eb; }
+.tbl-link-green { color: #1e7e34; }
+.tbl-links a { margin-left: 10px; }
+
+/* ---------------- Badges ---------------- */
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.badge-draft { background: #fff3cd; color: #856404; }
+.badge-final { background: #d4edda; color: #155724; }
+.badge-sent  { background: #cffafe; color: #155e75; }
+.badge-ok    { background: #d4edda; color: #155724; }
+.badge-fail  { background: #f8d7da; color: #721c24; }
+.badge-warn  { background: #fef3c7; color: #92400e; }
+
+/* ---------------- Range / live check ---------------- */
+
+.range-hint { font-size: 12px; color: #6b7280; margin-top: 6px; min-height: 16px; }
+.range-hint.out { color: #dc2626; }
+
+input.result-invalid {
+    border-color: #ef4444 !important;
+    background: #fef2f2 !important;
+    color: #b91c1c;
+}
+
+input.result-ok {
+    border-color: #22c55e !important;
+    background: #f0fdf4 !important;
+}
+
+/* ============================================================
+   Jalali date picker
+   ============================================================ */
+
+.jalali-wrap { position: relative; display: block; }
+
+.jalali-wrap .jalali-clear {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    line-height: 1;
+}
+
+.jp-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 200;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    width: 280px;
+    padding: 12px;
+}
+
+.jp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.jp-title { font-size: 14px; font-weight: bold; color: #111827; }
+
+.jp-nav {
+    border: none;
+    background: #f3f4f6;
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #374151;
+}
+
+.jp-nav:hover { background: #e5e7eb; }
+
+.jp-week, .jp-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+}
+
+.jp-week span { font-size: 11px; color: #9ca3af; padding: 4px 0; }
+
+.jp-day {
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    padding: 7px 0;
+    cursor: pointer;
+    font-size: 13px;
+    color: #1f2937;
+    font-family: inherit;
+}
+
+.jp-day:hover { background: #eff6ff; color: #2563eb; }
+.jp-day.today { background: #dbeafe; color: #1d4ed8; font-weight: bold; }
+.jp-day.selected { background: #2563eb; color: #fff; }
+.jp-day.other { color: #d1d5db; }

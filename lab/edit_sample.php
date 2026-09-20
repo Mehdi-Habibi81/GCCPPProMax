@@ -8,46 +8,67 @@ lab_require_login();
 
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 if ($id <= 0) {
-    header('Location: /lab/indicator.php');
+    header('Location: /lab/indicator');
     exit;
 }
 
 $sample = lab_get_sample_by_id($pdo, $id);
 if (!$sample) {
-    header('Location: /lab/indicator.php');
+    header('Location: /lab/indicator');
     exit;
 }
 
+$pageTitle = 'ویرایش نمونه — ' . $sample['sample_number'];
+$activeNav = 'indicator';
+
+$quantityUnits = [
+    'لیتر', 'میلی‌لیتر', 'متر مکعب', 'سانتی‌متر مکعب',
+    'کیلوگرم', 'گرم', 'میلی‌گرم', 'تن',
+    'بشکه', 'قوطی', 'کارتن', 'کیسه', 'عدد',
+];
+
 $errors = [];
 $success = null;
+$form = [
+    'quantity'          => (string)($sample['quantity'] ?? ''),
+    'quantity_unit'     => (string)($sample['quantity_unit'] ?? ''),
+    'sampling_date'     => (string)($sample['sampling_date_fa'] ?? ''),
+    'delivery_date'     => (string)($sample['delivery_date_fa'] ?? ''),
+    'sampling_location' => (string)($sample['sampling_location'] ?? ''),
+    'referrer'          => (string)($sample['referrer'] ?? ''),
+    'receiver'          => (string)($sample['receiver'] ?? ''),
+    'status'            => (string)($sample['status'] ?? 'in_progress'),
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $quantity         = trim($_POST['quantity'] ?? '');
-    $quantityUnit     = trim($_POST['quantity_unit'] ?? '');
-    $samplingDateJ    = trim($_POST['sampling_date'] ?? '');
-    $deliveryDateJ    = trim($_POST['delivery_date'] ?? '');
-    $samplingLocation = trim($_POST['sampling_location'] ?? '');
-    $referrer         = trim($_POST['referrer'] ?? '');
-    $receiver         = trim($_POST['receiver'] ?? '');
-    $status           = trim($_POST['status'] ?? 'in_progress');
+    $form = [
+        'quantity'          => trim($_POST['quantity'] ?? ''),
+        'quantity_unit'     => trim($_POST['quantity_unit'] ?? ''),
+        'sampling_date'     => trim($_POST['sampling_date'] ?? ''),
+        'delivery_date'     => trim($_POST['delivery_date'] ?? ''),
+        'sampling_location' => trim($_POST['sampling_location'] ?? ''),
+        'referrer'          => trim($_POST['referrer'] ?? ''),
+        'receiver'          => trim($_POST['receiver'] ?? ''),
+        'status'            => trim($_POST['status'] ?? 'in_progress'),
+    ];
 
-    if ($quantity !== '' && !is_numeric($quantity)) {
+    if ($form['quantity'] !== '' && !is_numeric($form['quantity'])) {
         $errors[] = 'مقدار نمونه باید عدد باشد.';
     }
 
     $samplingDateG = null;
-    if ($samplingDateJ !== '') {
-        $samplingDateG = lab_jalali_to_gregorian($samplingDateJ);
+    if ($form['sampling_date'] !== '') {
+        $samplingDateG = lab_jalali_to_gregorian($form['sampling_date']);
         if ($samplingDateG === null) {
-            $errors[] = 'تاریخ نمونه‌گیری معتبر نیست (فرمت: ۱۴۰۴/۰۶/۱۶).';
+            $errors[] = 'تاریخ نمونه‌گیری معتبر نیست — از تقویم انتخاب کنید.';
         }
     }
 
     $deliveryDateG = null;
-    if ($deliveryDateJ !== '') {
-        $deliveryDateG = lab_jalali_to_gregorian($deliveryDateJ);
+    if ($form['delivery_date'] !== '') {
+        $deliveryDateG = lab_jalali_to_gregorian($form['delivery_date']);
         if ($deliveryDateG === null) {
-            $errors[] = 'تاریخ تحویل نمونه معتبر نیست (فرمت: ۱۴۰۴/۰۶/۱۶).';
+            $errors[] = 'تاریخ تحویل نمونه معتبر نیست — از تقویم انتخاب کنید.';
         }
     }
 
@@ -65,14 +86,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              WHERE id = :id"
         );
         $stmt->execute([
-            'quantity'          => $quantity !== '' ? $quantity : null,
-            'quantity_unit'     => $quantityUnit !== '' ? $quantityUnit : null,
+            'quantity'          => $form['quantity'] !== '' ? $form['quantity'] : null,
+            'quantity_unit'     => $form['quantity_unit'] !== '' ? $form['quantity_unit'] : null,
             'sampling_date'     => $samplingDateG,
             'delivery_date'     => $deliveryDateG,
-            'sampling_location' => $samplingLocation !== '' ? $samplingLocation : null,
-            'referrer'          => $referrer !== '' ? $referrer : null,
-            'receiver'          => $receiver !== '' ? $receiver : null,
-            'status'            => $status,
+            'sampling_location' => $form['sampling_location'] !== '' ? $form['sampling_location'] : null,
+            'referrer'          => $form['referrer'] !== '' ? $form['referrer'] : null,
+            'receiver'          => $form['receiver'] !== '' ? $form['receiver'] : null,
+            'status'            => $form['status'],
             'id'                => $id,
         ]);
 
@@ -80,107 +101,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         lab_log_activity($pdo, 'sample_edited', 'شماره نمونه: ' . $sample['sample_number']);
     }
 }
+
+$storedUnit = $form['quantity_unit'];
+$unitKnown = $storedUnit !== '' && in_array($storedUnit, $quantityUnits, true);
+
+require __DIR__ . '/_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="/assets/fonts.css">
-    <title>ویرایش نمونه — <?= htmlspecialchars($sample['sample_number']) ?></title>
-    <style>
-        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
-        .card { background:#fff; border-radius:10px; padding:24px; max-width:820px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
-        h1 { font-size:20px; margin-top:0; }
-        .subtitle { color:#777; font-size:13px; margin-top:-8px; margin-bottom:16px; }
-        .grid { display:grid; grid-template-columns:1fr 1fr; gap:0 20px; }
-        label { display:block; margin:12px 0 4px; font-size:14px; color:#333; }
-        label .optional { color:#999; font-weight:normal; font-size:12px; }
-        input, select { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px; box-sizing:border-box; }
-        input[disabled] { background:#f2f2f2; color:#777; }
-        button { margin-top:18px; padding:10px 20px; background:#2f6fed; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
-        button:hover { background:#255ac2; }
-        .msg-error { background:#fdecea; color:#b71c1c; padding:10px 14px; border-radius:6px; margin-bottom:12px; }
-        .msg-success { background:#e6f4ea; color:#1e7e34; padding:10px 14px; border-radius:6px; margin-bottom:12px; }
-        .back-link { display:inline-block; margin-bottom:16px; color:#2f6fed; text-decoration:none; font-size:14px; }
-    </style>
-</head>
-<body>
 
-    <div class="card">
-        <a href="/lab/indicator.php" class="back-link">← بازگشت به لیست نمونه‌ها</a>
-        <h1>ویرایش نمونه <?= htmlspecialchars($sample['sample_number']) ?></h1>
-        <div class="subtitle">
-            نوع نمونه: <?= sprintf('%02d', $sample['type_code']) ?> — <?= htmlspecialchars($sample['type_name']) ?>
-            (نوع نمونه بعد از ثبت قابل تغییر نیست، چون در شماره‌ی نمونه استفاده شده)
-        </div>
+<div class="card">
+    <a href="/lab/indicator" class="back-link">← بازگشت به لیست نمونه‌ها</a>
+    <h1>ویرایش نمونه <?= htmlspecialchars($sample['sample_number']) ?></h1>
+    <p class="muted small">
+        نوع نمونه: <?= sprintf('%02d', $sample['type_code']) ?> — <?= htmlspecialchars($sample['type_name']) ?>
+        (نوع نمونه بعد از ثبت قابل تغییر نیست، چون در شماره‌ی نمونه استفاده شده)
+    </p>
 
-        <?php foreach ($errors as $e): ?>
-            <div class="msg-error"><?= htmlspecialchars($e) ?></div>
-        <?php endforeach; ?>
+    <?php foreach ($errors as $e): ?>
+        <div class="msg-error"><?= htmlspecialchars($e) ?></div>
+    <?php endforeach; ?>
 
-        <?php if ($success): ?>
-            <div class="msg-success"><?= htmlspecialchars($success) ?></div>
-        <?php endif; ?>
+    <?php if ($success): ?>
+        <div class="msg-success"><?= htmlspecialchars($success) ?></div>
+    <?php endif; ?>
 
-        <form method="post">
-            <input type="hidden" name="id" value="<?= (int)$sample['id'] ?>">
+    <form method="post">
+        <input type="hidden" name="id" value="<?= (int)$sample['id'] ?>">
 
-            <div class="grid">
-                <div>
-                    <label>نوع لاگ‌شیت اصلی</label>
-                    <input type="text" value="<?= htmlspecialchars($sample['main_log_sheet_type_name'] ?? '') ?>" readonly>
-                </div>
-
-                <div>
-                    <label>وضعیت</label>
-                    <select name="status">
-                        <option value="in_progress" <?= $sample['status'] === 'in_progress' ? 'selected' : '' ?>>در حال انجام</option>
-                        <option value="completed" <?= $sample['status'] === 'completed' ? 'selected' : '' ?>>تکمیل‌شده</option>
-                        <option value="sent" <?= $sample['status'] === 'sent' ? 'selected' : '' ?>>ارسال‌شده</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>مقدار نمونه <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="quantity" value="<?= htmlspecialchars($sample['quantity'] ?? '') ?>" inputmode="decimal">
-                </div>
-
-                <div>
-                    <label>واحد اندازه‌گیری <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="quantity_unit" value="<?= htmlspecialchars($sample['quantity_unit'] ?? '') ?>">
-                </div>
-
-                <div>
-                    <label>تاریخ نمونه‌گیری (شمسی) <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="sampling_date" value="<?= htmlspecialchars($sample['sampling_date_fa']) ?>" placeholder="۱۴۰۴/۰۶/۱۶">
-                </div>
-
-                <div>
-                    <label>تاریخ تحویل نمونه (شمسی) <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="delivery_date" value="<?= htmlspecialchars($sample['delivery_date_fa']) ?>" placeholder="۱۴۰۴/۰۶/۱۶">
-                </div>
-
-                <div>
-                    <label>محل نمونه‌گیری <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="sampling_location" value="<?= htmlspecialchars($sample['sampling_location'] ?? '') ?>">
-                </div>
-
-                <div></div>
-
-                <div>
-                    <label>ارجاع‌کننده <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="referrer" value="<?= htmlspecialchars($sample['referrer'] ?? '') ?>">
-                </div>
-
-                <div>
-                    <label>تحویل‌گیرنده <span class="optional">(اختیاری)</span></label>
-                    <input type="text" name="receiver" value="<?= htmlspecialchars($sample['receiver'] ?? '') ?>">
-                </div>
+        <div class="grid-2">
+            <div>
+                <label>نوع لاگ‌شیت اصلی</label>
+                <input type="text" value="<?= htmlspecialchars($sample['main_log_sheet_type_name'] ?? '') ?>" readonly>
             </div>
 
-            <button type="submit">ذخیره‌ی تغییرات</button>
-        </form>
-    </div>
+            <div>
+                <label>وضعیت</label>
+                <select name="status">
+                    <option value="in_progress" <?= $form['status'] === 'in_progress' ? 'selected' : '' ?>>در حال انجام</option>
+                    <option value="completed" <?= $form['status'] === 'completed' ? 'selected' : '' ?>>تکمیل‌شده</option>
+                    <option value="sent" <?= $form['status'] === 'sent' ? 'selected' : '' ?>>ارسال‌شده</option>
+                </select>
+            </div>
 
-</body>
-</html>
+            <div>
+                <label>مقدار نمونه <span class="optional">(اختیاری)</span></label>
+                <input type="text" name="quantity" value="<?= htmlspecialchars($form['quantity']) ?>" inputmode="decimal">
+            </div>
+
+            <div>
+                <label>واحد اندازه‌گیری <span class="optional">(اختیاری)</span></label>
+                <select name="quantity_unit">
+                    <option value="">— انتخاب کنید —</option>
+                    <?php if ($storedUnit !== '' && !$unitKnown): ?>
+                        <option value="<?= htmlspecialchars($storedUnit) ?>" selected>
+                            <?= htmlspecialchars($storedUnit) ?> (مقدار قبلی)
+                        </option>
+                    <?php endif; ?>
+                    <?php foreach ($quantityUnits as $unit): ?>
+                        <option value="<?= htmlspecialchars($unit) ?>" <?= $unitKnown && $storedUnit === $unit ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($unit) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div>
+                <label>تاریخ نمونه‌گیری (شمسی) <span class="optional">(اختیاری)</span></label>
+                <input type="text" class="jalali-input" name="sampling_date" value="<?= htmlspecialchars($form['sampling_date']) ?>">
+            </div>
+
+            <div>
+                <label>تاریخ تحویل نمونه (شمسی) <span class="optional">(اختیاری)</span></label>
+                <input type="text" class="jalali-input" name="delivery_date" value="<?= htmlspecialchars($form['delivery_date']) ?>">
+            </div>
+
+            <div>
+                <label>محل نمونه‌گیری <span class="optional">(اختیاری)</span></label>
+                <input type="text" name="sampling_location" value="<?= htmlspecialchars($form['sampling_location']) ?>">
+            </div>
+
+            <div></div>
+
+            <div>
+                <label>ارجاع‌کننده <span class="optional">(اختیاری)</span></label>
+                <input type="text" name="referrer" value="<?= htmlspecialchars($form['referrer']) ?>">
+            </div>
+
+            <div>
+                <label>تحویل‌گیرنده <span class="optional">(اختیاری)</span></label>
+                <input type="text" name="receiver" value="<?= htmlspecialchars($form['receiver']) ?>">
+            </div>
+        </div>
+
+        <button type="submit" class="btn">ذخیره‌ی تغییرات</button>
+    </form>
+</div>
+
+<?php require __DIR__ . '/_footer.php'; ?>

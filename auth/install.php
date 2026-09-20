@@ -220,17 +220,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     method VARCHAR(50),
                     limit_new VARCHAR(50),
                     limit_used VARCHAR(50),
+                    limit_min DECIMAL(14,4) NULL,
+                    limit_max DECIMAL(14,4) NULL,
                     test_location VARCHAR(50) DEFAULT 'داخل نیروگاه',
                     FOREIGN KEY (main_log_sheet_type_id) REFERENCES main_log_sheet_types(id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
+
+            // Migration: add numeric allowed-range columns if missing
+            // (for existing DBs created before schema_v10).
+            $defColumns = $pdo->query('SHOW COLUMNS FROM main_log_sheet_test_definitions')
+                ->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('limit_min', $defColumns, true)) {
+                $pdo->exec(
+                    "ALTER TABLE main_log_sheet_test_definitions
+                     ADD COLUMN limit_min DECIMAL(14,4) NULL AFTER limit_used"
+                );
+            }
+            if (!in_array('limit_max', $defColumns, true)) {
+                $pdo->exec(
+                    "ALTER TABLE main_log_sheet_test_definitions
+                     ADD COLUMN limit_max DECIMAL(14,4) NULL AFTER limit_min"
+                );
+            }
 
             // Test types (Density, Viscosity, etc.)
             $pdo->exec(
                 "CREATE TABLE IF NOT EXISTS test_types (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     name VARCHAR(100) NOT NULL,
-                    unit VARCHAR(20)
+                    unit VARCHAR(20),
+                    UNIQUE KEY uq_test_types_name (name)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
 
@@ -402,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo t('install_title'); ?></title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260920">
 </head>
 <body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 <div class="auth-container">
@@ -470,5 +490,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
     </div>
 </div>
+<div class="site-signature">Developed by Mehdi Habibi</div>
+
 </body>
 </html>

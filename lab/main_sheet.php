@@ -11,14 +11,25 @@ $sample = $sampleId ? lab_get_sample_by_id($pdo, $sampleId) : null;
 
 if (!$sample) {
     http_response_code(404);
-    echo 'نمونه‌ی مورد نظر پیدا نشد. <a href="indicator.php">بازگشت</a>';
+    $pageTitle = 'خطا';
+    $navHidden = true;
+    require __DIR__ . '/_header.php';
+    echo '<div class="card">نمونه‌ی مورد نظر پیدا نشد. <a href="indicator">بازگشت</a></div>';
+    require __DIR__ . '/_footer.php';
     exit;
 }
 
 if (empty($sample['main_log_sheet_type_id'])) {
-    echo 'این نمونه نوع لاگ‌شیت اصلی مشخصی ندارد. <a href="edit_sample.php?id=' . (int)$sample['id'] . '">ویرایش نمونه</a>';
+    $pageTitle = 'خطا';
+    $navHidden = true;
+    require __DIR__ . '/_header.php';
+    echo '<div class="card">این نمونه نوع لاگ‌شیت اصلی مشخصی ندارد. <a href="edit_sample?id=' . (int)$sample['id'] . '">ویرایش نمونه</a></div>';
+    require __DIR__ . '/_footer.php';
     exit;
 }
+
+$pageTitle = 'لاگ‌شیت اصلی — ' . $sample['sample_number'];
+$activeNav = 'main';
 
 $mainLogSheetId = lab_get_or_create_main_sheet($pdo, $sampleId);
 $success = null;
@@ -88,197 +99,169 @@ $pendingInternalResults = array_values(array_filter(
 $sheetStmt = $pdo->prepare("SELECT status, compiled_date, sent_to_cmms_date, cmms_reference_no FROM main_log_sheets WHERE id = :id");
 $sheetStmt->execute(['id' => $mainLogSheetId]);
 $sheetInfo = $sheetStmt->fetch();
+
+$statusLabels = ['draft' => 'در حال تکمیل (پیش‌نویس)', 'final' => 'نهایی‌شده', 'sent' => 'ارسال‌شده به CMMS'];
+$statusBadgeClass = match ($sheetInfo['status'] ?? '') {
+    'draft' => 'badge-draft',
+    'final' => 'badge-final',
+    'sent'  => 'badge-sent',
+    default => 'badge-warn',
+};
+
+require __DIR__ . '/_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="/assets/fonts.css">
-    <title>لاگ‌شیت اصلی — <?= htmlspecialchars($sample['sample_number']) ?></title>
-    <style>
-        body { font-family: 'IRANSans', Tahoma, sans-serif; background:#f7f7f9; margin:0; padding:24px; }
-        .card { background:#fff; border-radius:10px; padding:24px; max-width:960px; margin:0 auto 24px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
-        h1 { font-size:20px; margin-top:0; }
-        .back-link { display:inline-block; margin-bottom:16px; color:#2f6fed; text-decoration:none; font-size:14px; }
-        .meta { font-size:14px; color:#555; margin-bottom:16px; }
-        .meta b { color:#222; }
-        .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; }
-        .status-draft { background:#fff3cd; color:#856404; }
-        .status-final { background:#d4edda; color:#155724; }
-        table { width:100%; border-collapse:collapse; font-size:13px; }
-        th, td { padding:8px; border-bottom:1px solid #eee; text-align:right; vertical-align:top; }
-        th { color:#666; font-weight:normal; }
-        input { width:100%; padding:6px; border:1px solid #ccc; border-radius:6px; font-size:13px; box-sizing:border-box; }
-        .limits { font-size:12px; color:#555; }
-        .location-badge { font-size:11px; color:#888; }
-        .msg-success { background:#e6f4ea; color:#1e7e34; padding:10px 14px; border-radius:6px; margin-bottom:12px; }
-        .actions { margin-top:18px; display:flex; gap:10px; }
-        button { padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
-        .btn-save { background:#2f6fed; color:#fff; }
-        .btn-save:hover { background:#255ac2; }
-        .btn-finalize { background:#1e7e34; color:#fff; }
-        .btn-finalize:hover { background:#166028; }
-        .needs-verification { color:#b45309; }
-    </style>
-</head>
-<body>
 
-    <div class="card">
-        <a class="back-link" href="indicator.php">→ بازگشت به دفتر اندیکاتور</a>
-        <h1>لاگ‌شیت اصلی — <?= htmlspecialchars($sample['main_log_sheet_type_name']) ?></h1>
+<div class="card" style="max-width:100%;">
+    <a class="back-link" href="indicator">← بازگشت به دفتر اندیکاتور</a>
+    <h1>لاگ‌شیت اصلی — <?= htmlspecialchars($sample['main_log_sheet_type_name']) ?></h1>
 
-        <div class="meta">
-            شماره نمونه: <b><?= htmlspecialchars($sample['sample_number']) ?></b> —
-            وضعیت لاگ‌شیت:
-            <span class="status-badge <?= $sheetInfo['status'] === 'draft' ? 'status-draft' : 'status-final' ?>">
-                <?php
-                    $statusLabels = ['draft' => 'در حال تکمیل (پیش‌نویس)', 'final' => 'نهایی‌شده', 'sent' => 'ارسال‌شده به CMMS'];
-                    echo htmlspecialchars($statusLabels[$sheetInfo['status']] ?? $sheetInfo['status']);
-                ?>
-            </span>
+    <p class="muted small">
+        شماره نمونه: <b><?= htmlspecialchars($sample['sample_number']) ?></b> —
+        وضعیت لاگ‌شیت:
+        <span class="badge <?= $statusBadgeClass ?>">
+            <?= htmlspecialchars($statusLabels[$sheetInfo['status']] ?? $sheetInfo['status']) ?>
+        </span>
+        <?php if (!empty($sheetInfo['compiled_date'])): ?>
+            — تاریخ نهایی‌شدن: <?= htmlspecialchars(lab_gregorian_to_jalali($sheetInfo['compiled_date'])) ?>
+        <?php endif; ?>
+    </p>
+
+    <?php if ($success): ?>
+        <div class="msg-success"><?= htmlspecialchars($success) ?></div>
+    <?php endif; ?>
+
+    <form method="post">
+        <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+
+        <div class="tablewrap">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>ردیف</th>
+                    <th>آزمایش</th>
+                    <th>واحد</th>
+                    <th>روش</th>
+                    <th>مقادیر مجاز</th>
+                    <th>نتیجه</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($rows as $r): ?>
+                    <tr>
+                        <td><?= (int)$r['row_order'] ?></td>
+                        <td style="white-space:normal;">
+                            <?= htmlspecialchars(str_replace(' — NEEDS VERIFICATION', '', $r['test_name'])) ?>
+                            <?php if (strpos($r['test_name'], 'NEEDS VERIFICATION') !== false): ?>
+                                <div class="small" style="color:#b45309;">⚠ نیاز به تأیید مقدار مجاز</div>
+                            <?php endif; ?>
+                            <div class="small muted"><?= htmlspecialchars($r['test_location']) ?></div>
+                        </td>
+                        <td><?= htmlspecialchars(lab_format_unit($r['unit'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars($r['method'] ?? '—') ?></td>
+                        <td class="limits small">
+                            <?php if ($r['limit_used'] !== null && $r['limit_used'] !== '---'): ?>
+                                کارکرده: <?= htmlspecialchars($r['limit_used']) ?><br>
+                            <?php endif; ?>
+                            <?php if ($r['limit_new'] !== null && $r['limit_new'] !== '---'): ?>
+                                نو: <?= htmlspecialchars($r['limit_new']) ?>
+                            <?php endif; ?>
+                        </td>
+                        <td style="min-width:140px;">
+                            <input type="text" name="results[<?= (int)$r['test_definition_id'] ?>]"
+                                   value="<?= htmlspecialchars($r['result_value'] ?? '') ?>">
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$rows): ?>
+                    <tr><td colspan="6" style="text-align:center;color:#9ca3af;">برای این نوع لاگ‌شیت هنوز آزمایشی تعریف نشده است.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
         </div>
 
-        <?php if ($success): ?>
-            <div class="msg-success"><?= htmlspecialchars($success) ?></div>
-        <?php endif; ?>
+        <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
+            <button type="submit" class="btn">ذخیره‌ی نتایج</button>
+            <button type="submit" name="finalize" value="1" class="btn btn-green"
+                    onclick="return confirm('بعد از نهایی کردن، لاگ‌شیت آماده‌ی ذخیره به‌صورت Word و ارسال به CMMS می‌شود. ادامه می‌دهید؟');">
+                نهایی کردن لاگ‌شیت
+            </button>
+        </div>
+    </form>
 
-        <form method="post">
-            <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+    <div style="margin-top:18px;">
+        <a href="export_word?sample_id=<?= (int)$sampleId ?>" class="btn btn-gray">دانلود فایل Word</a>
+    </div>
 
-            <table>
+    <?php if ($pendingInternalResults): ?>
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eef0f3;">
+            <h2>انتقال نتایج از لاگ‌شیت‌های داخلی</h2>
+            <p class="small muted" style="margin:6px 0 12px;">
+                این نتایج برای این نمونه در لاگ‌شیت‌های داخلی ثبت شده و هنوز به این لاگ‌شیت منتقل نشده‌اند.
+                برای هر مورد ردیف آزمایش موردنظر را انتخاب و «انتقال» را بزنید.
+                ردیف‌هایی که ✓ دارند با نوع آزمایشِ لاگ‌شیت داخلی مطابقت دارند.
+            </p>
+            <?php if (!$rows): ?>
+                <p style="color:#9ca3af;font-size:13px;">برای این نوع لاگ‌شیت هنوز ردیف آزمایشی تعریف نشده است؛ نمی‌توان نتیجه‌ای منتقل کرد.</p>
+            <?php else: ?>
+            <div class="tablewrap">
+            <table class="data">
                 <thead>
                     <tr>
-                        <th>ردیف</th>
-                        <th>آزمایش</th>
-                        <th>واحد</th>
-                        <th>روش</th>
-                        <th>مقادیر مجاز</th>
+                        <th>لاگ‌شیت داخلی</th>
                         <th>نتیجه</th>
+                        <th>تاریخ آزمایش</th>
+                        <th>انتقال به ردیف آزمایش</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($rows as $r): ?>
+                    <?php foreach ($pendingInternalResults as $ir): ?>
                         <tr>
-                            <td><?= (int)$r['row_order'] ?></td>
+                            <td><?= htmlspecialchars($ir['test_type_name'] . ($ir['unit'] ? ' (' . lab_format_unit($ir['unit']) . ')' : '')) ?></td>
+                            <td><?= htmlspecialchars($ir['result_value']) ?></td>
+                            <td><?= htmlspecialchars($ir['tested_date_fa']) ?></td>
                             <td>
-                                <?= htmlspecialchars(str_replace(' — NEEDS VERIFICATION', '', $r['test_name'])) ?>
-                                <?php if (strpos($r['test_name'], 'NEEDS VERIFICATION') !== false): ?>
-                                    <div class="needs-verification">⚠ نیاز به تأیید مقدار مجاز</div>
-                                <?php endif; ?>
-                                <div class="location-badge"><?= htmlspecialchars($r['test_location']) ?></div>
-                            </td>
-                            <td><?= htmlspecialchars($r['unit'] ?? '—') ?></td>
-                            <td><?= htmlspecialchars($r['method'] ?? '—') ?></td>
-                            <td class="limits">
-                                <?php if ($r['limit_used'] !== null && $r['limit_used'] !== '---' ): ?>
-                                    کارکرده: <?= htmlspecialchars($r['limit_used']) ?><br>
-                                <?php endif; ?>
-                                <?php if ($r['limit_new'] !== null): ?>
-                                    نو: <?= htmlspecialchars($r['limit_new']) ?>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <input type="text" name="results[<?= (int)$r['test_definition_id'] ?>]"
-                                       value="<?= htmlspecialchars($r['result_value'] ?? '') ?>">
+                                <form method="post" style="display:flex;gap:6px;align-items:center;max-width:560px;">
+                                    <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+                                    <input type="hidden" name="test_result_id" value="<?= (int)$ir['id'] ?>">
+                                    <select name="test_definition_id" required style="margin:0;">
+                                        <option value="">— انتخاب ردیف آزمایش —</option>
+                                        <?php foreach ($rows as $r):
+                                            $isMatch = str_starts_with((string)$r['test_name'], (string)$ir['test_type_name']);
+                                        ?>
+                                            <option value="<?= (int)$r['test_definition_id'] ?>">
+                                                <?= (int)$r['row_order'] ?> — <?= htmlspecialchars(str_replace(' — NEEDS VERIFICATION', '', $r['test_name'])) ?><?= $isMatch ? ' ✓' : '' ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" name="transfer_internal" value="1" class="btn btn-green btn-sm">انتقال</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (!$rows): ?>
-                        <tr><td colspan="6" style="text-align:center;color:#999;">برای این نوع لاگ‌شیت هنوز آزمایشی تعریف نشده است.</td></tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
-
-            <div class="actions">
-                <button type="submit" class="btn-save">ذخیره‌ی نتایج</button>
-                <button type="submit" name="finalize" value="1" class="btn-finalize"
-                        onclick="return confirm('بعد از نهایی کردن، لاگ‌شیت آماده‌ی ذخیره به‌صورت Word و ارسال به CMMS می‌شود. ادامه می‌دهید؟');">
-                    نهایی کردن لاگ‌شیت
-                </button>
             </div>
-        </form>
-
-        <div style="margin-top:16px;">
-            <a href="export_word.php?sample_id=<?= (int)$sampleId ?>" class="btn-save"
-               style="display:inline-block;text-decoration:none;padding:10px 20px;border-radius:6px;background:#6c757d;color:#fff;">
-                دانلود فایل Word
-            </a>
+            <?php endif; ?>
         </div>
+    <?php endif; ?>
 
-        <?php if ($pendingInternalResults): ?>
-            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
-                <h1 style="font-size:16px;">انتقال نتایج از لاگ‌شیت‌های داخلی</h1>
-                <p style="font-size:13px;color:#555;margin:6px 0 12px;">
-                    این نتایج برای این نمونه در لاگ‌شیت‌های داخلی ثبت شده و هنوز به این لاگ‌شیت منتقل نشده‌اند.
-                    برای هر مورد ردیف آزمایش موردنظر را انتخاب و «انتقال» را بزنید.
-                    ردیف‌هایی که ✓ دارند با نوع آزمایشِ لاگ‌شیت داخلی مطابقت دارند.
+    <?php if (in_array($sheetInfo['status'], ['final', 'sent'], true)): ?>
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eef0f3;">
+            <h2>ثبت ارسال به CMMS</h2>
+            <?php if (!empty($sheetInfo['sent_to_cmms_date'] ?? null)): ?>
+                <p style="color:#1e7e34;font-size:14px;">
+                    ✓ در تاریخ <?= htmlspecialchars(lab_gregorian_to_jalali($sheetInfo['sent_to_cmms_date'])) ?>
+                    با شماره پیگیری «<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '—') ?>» ارسال شده است.
                 </p>
-                <?php if (!$rows): ?>
-                    <p style="color:#999;font-size:13px;">برای این نوع لاگ‌شیت هنوز ردیف آزمایشی تعریف نشده است؛ نمی‌توان نتیجه‌ای منتقل کرد.</p>
-                <?php else: ?>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>لاگ‌شیت داخلی</th>
-                            <th>نتیجه</th>
-                            <th>تاریخ آزمایش</th>
-                            <th>انتقال به ردیف آزمایش</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($pendingInternalResults as $ir): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($ir['test_type_name'] . ($ir['unit'] ? ' (' . $ir['unit'] . ')' : '')) ?></td>
-                                <td><?= htmlspecialchars($ir['result_value']) ?></td>
-                                <td><?= htmlspecialchars($ir['tested_date_fa']) ?></td>
-                                <td>
-                                    <form method="post" style="display:flex;gap:6px;max-width:540px;">
-                                        <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
-                                        <input type="hidden" name="test_result_id" value="<?= (int)$ir['id'] ?>">
-                                        <select name="test_definition_id" required style="margin:0;">
-                                            <option value="">— انتخاب ردیف آزمایش —</option>
-                                            <?php foreach ($rows as $r):
-                                                $isMatch = str_starts_with((string)$r['test_name'], (string)$ir['test_type_name']);
-                                            ?>
-                                                <option value="<?= (int)$r['test_definition_id'] ?>">
-                                                    <?= (int)$r['row_order'] ?> — <?= htmlspecialchars(str_replace(' — NEEDS VERIFICATION', '', $r['test_name'])) ?><?= $isMatch ? ' ✓' : '' ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                        <button type="submit" name="transfer_internal" value="1"
-                                                style="margin-top:0;padding:8px 14px;background:#1e7e34;white-space:nowrap;">
-                                            انتقال
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
+            <form method="post" style="max-width:400px;">
+                <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
+                <label style="display:block;margin-bottom:6px;font-size:14px;">شماره پیگیری CMMS <span class="optional">(اختیاری)</span></label>
+                <input type="text" name="cmms_reference_no" value="<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '') ?>">
+                <button type="submit" name="mark_sent" value="1" class="btn btn-green">ثبت ارسال به CMMS</button>
+            </form>
+        </div>
+    <?php endif; ?>
+</div>
 
-        <?php if (in_array($sheetInfo['status'], ['final', 'sent'], true)): ?>
-            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
-                <h1 style="font-size:16px;">ثبت ارسال به CMMS</h1>
-                <?php if (!empty($sheetInfo['sent_to_cmms_date'] ?? null)): ?>
-                    <p style="color:#1e7e34;font-size:14px;">
-                        ✓ در تاریخ <?= htmlspecialchars(lab_gregorian_to_jalali($sheetInfo['sent_to_cmms_date'])) ?>
-                        با شماره پیگیری «<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '—') ?>» ارسال شده است.
-                    </p>
-                <?php endif; ?>
-                <form method="post" style="max-width:400px;">
-                    <input type="hidden" name="sample_id" value="<?= (int)$sampleId ?>">
-                    <label style="display:block;margin-bottom:6px;font-size:14px;">شماره پیگیری CMMS <span style="color:#999;font-size:12px;">(اختیاری)</span></label>
-                    <input type="text" name="cmms_reference_no" value="<?= htmlspecialchars($sheetInfo['cmms_reference_no'] ?? '') ?>">
-                    <button type="submit" name="mark_sent" value="1" class="btn-finalize" style="margin-top:12px;">
-                        ثبت ارسال به CMMS
-                    </button>
-                </form>
-            </div>
-        <?php endif; ?>
-    </div>
-
-</body>
-</html>
+<?php require __DIR__ . '/_footer.php'; ?>

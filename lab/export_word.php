@@ -59,8 +59,17 @@ if (!$sample || empty($sample['main_log_sheet_type_id'])) {
 
     http_response_code(404);
 
-    echo 'نمونه یا نوع لاگ‌شیت اصلی آن یافت نشد. '
-       . '<a href="indicator.php">بازگشت</a>';
+    echo '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8">'
+       . '<style>body{font-family:Tahoma,Arial,sans-serif;background:#f1f5f9;margin:0;padding:40px;text-align:center;}'
+       . '.box{background:#fff;max-width:480px;margin:60px auto;padding:32px;border-radius:16px;'
+       . 'box-shadow:0 10px 30px rgba(0,0,0,.1);}'
+       . '.site-signature{position:fixed;bottom:10px;left:12px;z-index:60;font-size:11px;color:#6b7280;'
+       . 'background:rgba(255,255,255,.75);padding:4px 12px;border-radius:12px;'
+       . 'box-shadow:0 1px 4px rgba(0,0,0,.08);pointer-events:none;white-space:nowrap;}</style></head><body>'
+       . '<div class="box"><p>نمونه یا نوع لاگ‌شیت اصلی آن یافت نشد.</p>'
+       . '<p><a href="indicator">بازگشت</a></p></div>'
+       . '<div class="site-signature">Developed by Mehdi Habibi</div>'
+       . '</body></html>';
 
     exit;
 }

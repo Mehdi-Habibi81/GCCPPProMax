@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo t('reset_title'); ?></title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260920">
 </head>
 <body dir="<?php echo is_persian() ? 'rtl' : 'ltr'; ?>" lang="<?php echo is_persian() ? 'fa' : 'en'; ?>">
 <div class="auth-container">
@@ -133,5 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 </div>
 </div>
+<div class="site-signature">Developed by Mehdi Habibi</div>
+
 </body>
 </html>

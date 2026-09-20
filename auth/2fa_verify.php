@@ -103,7 +103,7 @@ $error = is_persian()
 
     <title><?php echo t('twofa_title'); ?></title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260920">
 
     <style>
 
@@ -206,6 +206,8 @@ $error = is_persian()
     </div>
 
 </div>
+
+<div class="site-signature">Developed by Mehdi Habibi</div>
 
 </body>
 

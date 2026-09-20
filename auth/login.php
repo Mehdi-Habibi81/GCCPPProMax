@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <title><?php echo htmlspecialchars(t('login_title'), ENT_QUOTES, 'UTF-8'); ?></title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260920">
 
 </head>
 
@@ -218,6 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
 </div>
+
+<div class="site-signature">Developed by Mehdi Habibi</div>
 
 </body>
 

@@ -166,7 +166,7 @@ if ((int)$user['two_factor_enabled'] === 0 && $originalSecret !== null) {
 
     <title><?php echo htmlspecialchars(t('setup_twofa'), ENT_QUOTES, 'UTF-8'); ?></title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260920">
 
     <style>
 
@@ -362,6 +362,8 @@ if ((int)$user['two_factor_enabled'] === 0 && $originalSecret !== null) {
     </div>
 
 </div>
+
+<div class="site-signature">Developed by Mehdi Habibi</div>
 
 </body>
 

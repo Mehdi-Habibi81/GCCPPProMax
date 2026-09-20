@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS main_log_sheet_test_definitions (
     method VARCHAR(50),
     limit_new VARCHAR(50),
     limit_used VARCHAR(50),
+    limit_min DECIMAL(14,4) NULL,
+    limit_max DECIMAL(14,4) NULL,
     test_location VARCHAR(50) DEFAULT 'داخل نیروگاه',
     FOREIGN KEY (main_log_sheet_type_id) REFERENCES main_log_sheet_types(id)
 ) ENGINE=InnoDB;
@@ -170,7 +172,8 @@ WHERE NOT EXISTS (SELECT 1 FROM main_log_sheet_test_definitions LIMIT 1);
 CREATE TABLE IF NOT EXISTS test_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    unit VARCHAR(20)
+    unit VARCHAR(20),
+    UNIQUE KEY uq_test_types_name (name)
 ) ENGINE=InnoDB;
 
 INSERT IGNORE INTO test_types (id, name, unit) VALUES
@@ -315,3 +318,39 @@ CREATE TABLE IF NOT EXISTS login_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_login_created (created_at)
 ) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- Numeric allowed-range columns on test definitions (schema_v10)
+-- Used for the live red/green validation when entering results
+-- in the internal log sheets. NULL = no limit configured.
+-- Only added if the column is missing.
+-- ------------------------------------------------------------
+
+SET @has_limit_min := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'main_log_sheet_test_definitions'
+      AND COLUMN_NAME = 'limit_min'
+);
+SET @has_limit_max := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'main_log_sheet_test_definitions'
+      AND COLUMN_NAME = 'limit_max'
+);
+SET @add_limit_min := IF(
+    @has_limit_min = 0,
+    'ALTER TABLE main_log_sheet_test_definitions ADD COLUMN limit_min DECIMAL(14,4) NULL AFTER limit_used',
+    'SELECT 1'
+);
+SET @add_limit_max := IF(
+    @has_limit_max = 0,
+    'ALTER TABLE main_log_sheet_test_definitions ADD COLUMN limit_max DECIMAL(14,4) NULL AFTER limit_min',
+    'SELECT 1'
+);
+PREPARE stmt_limit_min FROM @add_limit_min;
+EXECUTE stmt_limit_min;
+DEALLOCATE PREPARE stmt_limit_min;
+PREPARE stmt_limit_max FROM @add_limit_max;
+EXECUTE stmt_limit_max;
+DEALLOCATE PREPARE stmt_limit_max;

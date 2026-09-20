@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Carbon\Carbon;
 use Morilog\Jalali\Jalalian;
 
 /**
@@ -168,10 +169,24 @@ function lab_jalali_to_gregorian(string $jalaliDate): ?string
 function lab_gregorian_to_jalali(string $gregorianDate): string
 {
     try {
-        return Jalalian::fromFormat('Y-m-d', $gregorianDate)->format('Y/m/d');
+        return Jalalian::fromCarbon(Carbon::parse($gregorianDate))->format('Y/m/d');
     } catch (\Throwable $e) {
         return $gregorianDate;
     }
+}
+
+/**
+ * Convert a stored Gregorian datetime ("Y-m-d H:i:s") to a Jalali
+ * date "Y/m/d" keeping the original time, e.g.
+ * "2024-06-16 14:30:00" -> "1403/03/27 14:30:00".
+ */
+function lab_gregorian_datetime_to_jalali(string $gregorianDatetime): string
+{
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})(.*)$/', trim($gregorianDatetime), $m)) {
+        return lab_gregorian_to_jalali($m[1]) . $m[2];
+    }
+
+    return $gregorianDatetime;
 }
 
 /**
@@ -287,7 +302,9 @@ function lab_get_or_create_internal_sheet(PDO $pdo, int $testTypeId): int
 function lab_get_samples_for_select(PDO $pdo, int $limit = 200): array
 {
     $stmt = $pdo->prepare(
-        "SELECT s.id, s.sample_number, mlt.name_fa AS main_log_sheet_type_name
+        "SELECT s.id, s.sample_number,
+                s.main_log_sheet_type_id,
+                mlt.name_fa AS main_log_sheet_type_name
          FROM samples s
          LEFT JOIN main_log_sheet_types mlt ON s.main_log_sheet_type_id = mlt.id
          ORDER BY s.id DESC
@@ -476,4 +493,84 @@ function lab_transfer_internal_result_to_main_sheet(PDO $pdo, int $sampleId, int
     $upd->execute(['id' => $testResultId]);
 
     return true;
+}
+
+/**
+ * Display a unit string with proper superscript exponents,
+ * e.g. "g/cm3" -> "g/cm³", "mm2/s" -> "mm²/s".
+ * Plain text output (Unicode superscripts); safe to escape further.
+ */
+function lab_format_unit(?string $unit): string
+{
+    if ($unit === null || $unit === '') {
+        return '';
+    }
+
+    $superscripts = [
+        '0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴',
+        '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹',
+    ];
+
+    return strtr($unit, $superscripts);
+}
+
+/**
+ * Test definitions (rows) for one main log sheet product type, used
+ * by the "محدوده‌های مجاز" (allowed ranges) configuration page.
+ */
+function lab_get_test_definitions_for_type(PDO $pdo, int $mainLogSheetTypeId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT id, row_order, test_name, unit, method, test_location,
+                limit_new, limit_used, limit_min, limit_max
+         FROM main_log_sheet_test_definitions
+         WHERE main_log_sheet_type_id = :type_id
+         ORDER BY row_order"
+    );
+    $stmt->execute(['type_id' => $mainLogSheetTypeId]);
+    return $stmt->fetchAll();
+}
+
+/**
+ * For a given internal test type, the allowed-range candidates on
+ * EVERY main log sheet type (matched by test-name prefix, same rule
+ * as lab_find_matching_test_definition).
+ *
+ * Returns an array keyed by main_log_sheet_type_id:
+ *   [typeId] => [ ['name' => ..., 'min' => float|null, 'max' => float|null], ... ]
+ *
+ * Used to feed the live red/green check in the internal sheet form.
+ */
+function lab_get_range_candidates_for_test_type(PDO $pdo, int $testTypeId): array
+{
+    $nameStmt = $pdo->prepare("SELECT name FROM test_types WHERE id = :id");
+    $nameStmt->execute(['id' => $testTypeId]);
+    $testTypeName = (string)$nameStmt->fetchColumn();
+    if ($testTypeName === '') {
+        return [];
+    }
+
+    $stmt = $pdo->prepare(
+        "SELECT id, main_log_sheet_type_id, test_name, test_location,
+                limit_min, limit_max
+         FROM main_log_sheet_test_definitions
+         ORDER BY main_log_sheet_type_id, row_order"
+    );
+    $stmt->execute();
+
+    $result = [];
+    foreach ($stmt->fetchAll() as $d) {
+        if (!str_starts_with((string)$d['test_name'], $testTypeName)) {
+            continue;
+        }
+        $typeId = (int)$d['main_log_sheet_type_id'];
+        $result[$typeId][] = [
+            'name' => (string)$d['test_name'],
+            'location' => (string)($d['test_location'] ?? ''),
+            'min' => $d['limit_min'] !== null ? (float)$d['limit_min'] : null,
+            'max' => $d['limit_max'] !== null ? (float)$d['limit_max'] : null,
+        ];
+    }
+
+    return $result;
 }

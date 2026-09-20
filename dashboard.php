@@ -49,7 +49,7 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
 
     <title><?php echo t('dashboard'); ?></title>
 
-    <link rel="stylesheet" href="auth/style.css">
+    <link rel="stylesheet" href="auth/style.css?v=20260920">
 
     <style>
 
@@ -242,6 +242,8 @@ $twoFactorEnabled = (int)$user['two_factor_enabled'] === 1;
     </a>
 
 </div>
+
+<div class="site-signature">Developed by Mehdi Habibi</div>
 
 </body>
 
