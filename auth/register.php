@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <title><?php echo t('register_title'); ?></title>
 
-    <link rel="stylesheet" href="style.css?v=20260920">
+    <link rel="stylesheet" href="style.css">
 
     <style>
 
@@ -474,8 +474,6 @@ password.addEventListener('input', checkPassword);
 passwordConfirm.addEventListener('input', checkPasswordMatch);
 
 </script>
-
-<div class="site-signature">Developed by Mehdi Habibi</div>
 
 </body>
 
