@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS main_log_sheet_test_definitions (
     limit_used VARCHAR(50),
     limit_min DECIMAL(14,4) NULL,
     limit_max DECIMAL(14,4) NULL,
-    test_location VARCHAR(50) DEFAULT 'داخل نیروگاه',
+    test_location VARCHAR(50) NOT NULL,
     FOREIGN KEY (main_log_sheet_type_id) REFERENCES main_log_sheet_types(id)
 ) ENGINE=InnoDB;
 
